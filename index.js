@@ -1,6 +1,6 @@
 /**
- * Cloudflare Worker Navigation Site v10.2 (Zen Interaction Update)
- * Features: Zen Mode Click-to-Exit, Header Glass Polish, Custom Search, Memo
+ * Cloudflare Worker Navigation Site v10.3 (Auto Zen Focus Edition)
+ * Features: Auto-Enter Zen Mode on Search Focus (3s), Click-to-Exit, Header Polish
  */
 
 const HTML_TEMPLATE = `
@@ -248,6 +248,7 @@ const HTML_TEMPLATE = `
             
             <div class="relative group transform transition-all duration-300 focus-within:scale-105">
                 <input x-ref="searchInput" type="text" x-model="search" @keydown.enter="doSearch()" 
+                    @focus="startZenTimer()" @blur="clearZenTimer()"
                     :placeholder="getSearchPlaceholder()" 
                     class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-xl backdrop-blur-md">
                 <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none">
@@ -337,7 +338,7 @@ const HTML_TEMPLATE = `
     </main>
     
     <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v10.2</a>
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v10.3</a>
     </footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
@@ -471,6 +472,8 @@ const HTML_TEMPLATE = `
                     { name: 'Duck', val: 'duck', icon: 'fa-solid fa-duck', url: 'https://duckduckgo.com/?q=' }
                 ],
                 authForm: { username: '', password: '' }, linkForm: { id: null, groupId: null, title: '', url: '', desc: '', iconUrl: '', isPrivate: false }, groupForm: { id: null, name: '', isPrivate: false },
+                
+                zenTimer: null,
 
                 async init() {
                     setInterval(() => { const now = new Date(); this.timeStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }, 1000);
@@ -488,6 +491,10 @@ const HTML_TEMPLATE = `
                 },
                 closeAllModals() { this.modals.login = false; this.modals.link = false; this.modals.group = false; this.modals.settings = false; this.modals.memo = false; this.closeMenu(); },
                 toggleZen() { this.zenMode = !this.zenMode; },
+                
+                startZenTimer() { if (this.zenMode) return; this.clearZenTimer(); this.zenTimer = setTimeout(() => { if (!this.zenMode && document.activeElement === this.$refs.searchInput) { this.zenMode = true; } }, 3000); },
+                clearZenTimer() { if (this.zenTimer) { clearTimeout(this.zenTimer); this.zenTimer = null; } },
+
                 setEngine(val) { this.settings.engine = val; this.saveSettings(); },
 
                 async fetchWeather() { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(async (pos) => { try { const res = await fetch(\`https://api.open-meteo.com/v1/forecast?latitude=\${pos.coords.latitude}&longitude=\${pos.coords.longitude}&current_weather=true\`); const data = await res.json(); if(data.current_weather) this.weather.temp = Math.round(data.current_weather.temperature); } catch(e) {} }); },
@@ -567,7 +574,7 @@ export default {
             if (path === "/api/meta") {
                 const targetUrl = url.searchParams.get("url"); if (!targetUrl) return new Response("Missing URL", { status: 400 });
                 try {
-                    const response = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NexusBot/10.2)' }, redirect: 'follow' });
+                    const response = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NexusBot/10.3)' }, redirect: 'follow' });
                     const state = { title: null, description: null, image: null, inTitle: false };
                     await new HTMLRewriter().on("title", new MetaHandler(state)).on("meta", new MetaHandler(state)).transform(response).text();
                     return new Response(JSON.stringify({ title: state.title ? state.title.trim() : "", description: state.description ? state.description.trim() : "", icon: "" }), { headers: cors });
