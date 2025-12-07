@@ -1,17 +1,29 @@
 /**
- * Cloudflare Worker Navigation Site v10.4 (Strict Security UI Edition)
- * Changelog: 
- * - Hided 'Custom' engine button for guests to prevent confusion.
- * - Added toast feedback for unauthorized save attempts.
+ * Cloudflare Worker Navigation Site v11.2 (Icon Personalized Edition)
+ * Optimization Log:
+ * - [Icon] Centralized 'SITE_ICON' configuration.
+ * - [Icon] Updated default icon to 'Atom' (⚛️) to match the Nexus theme.
+ * - [PWA] Synced PWA Manifest and Apple Touch Icon with the new site icon.
  */
 
-const HTML_TEMPLATE = `
+// 🟢 配置区域：在这里更换你的网站图标链接
+const SITE_ICON = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/269b.png"; 
+
+const HTML_TEMPLATE = (context) => `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nexus</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>智能导航</title>
+    <meta name="theme-color" content="#0f172a">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="${SITE_ICON}">
+    <link rel="apple-touch-icon" href="${SITE_ICON}">
+    
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
@@ -20,9 +32,10 @@ const HTML_TEMPLATE = `
     
     <style>
         [x-cloak] { display: none !important; }
+        * { -webkit-tap-highlight-color: transparent; }
         
         :root {
-            /* --- 🌑 Deep Space Theme --- */
+            /* --- 🌑 Deep Space Theme (Default) --- */
             --bg-grad-start: #0f172a;
             --bg-grad-end: #020617;
             --text-primary: #f8fafc;
@@ -30,18 +43,17 @@ const HTML_TEMPLATE = `
             --text-accent: #818cf8;
             
             /* Glass System */
-            --glass-bg: rgba(15, 23, 42, 0.75);
+            --glass-bg: rgba(15, 23, 42, 0.65);
             --glass-border: rgba(255, 255, 255, 0.08);
             --glass-highlight: rgba(255, 255, 255, 0.05);
             
             /* Dynamic Vars */
             --card-rgb: 15, 23, 42;
-            --hover-rgb: 51, 65, 85;
             --card-bg: rgba(30, 41, 59, var(--card-opacity, 0.5));
             --card-hover: rgba(51, 65, 85, var(--hover-opacity, 0.7));
             
-            --modal-bg: rgba(15, 23, 42, 0.95);
-            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.2);
+            --modal-bg: rgba(15, 23, 42, 0.85);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
             --icon-size: 32px;
         }
 
@@ -53,16 +65,15 @@ const HTML_TEMPLATE = `
             --text-secondary: #64748b;
             --text-accent: #4f46e5;
             
-            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-bg: rgba(255, 255, 255, 0.75);
             --glass-border: rgba(255, 255, 255, 0.6);
             --glass-highlight: rgba(255, 255, 255, 0.9);
             
             --card-rgb: 255, 255, 255;
-            --hover-rgb: 255, 255, 255;
             --card-bg: rgba(255, 255, 255, var(--card-opacity, 0.7));
             --card-hover: rgba(255, 255, 255, var(--hover-opacity, 0.95));
             
-            --modal-bg: rgba(255, 255, 255, 0.98);
+            --modal-bg: rgba(255, 255, 255, 0.9);
             --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
         }
 
@@ -72,54 +83,50 @@ const HTML_TEMPLATE = `
             background: linear-gradient(135deg, var(--bg-grad-start), var(--bg-grad-end));
             background-attachment: fixed;
             overflow-y: scroll;
-            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
         }
 
         /* --- UI Components --- */
         .header-glass {
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
         }
         
         .logo-box {
             background: linear-gradient(135deg, #6366f1, #a855f7);
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 10px rgba(99, 102, 241, 0.3);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 15px rgba(99, 102, 241, 0.4);
             position: relative; overflow: hidden;
         }
         .logo-box::after {
             content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
             transform: rotate(45deg);
         }
 
         .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            background: var(--modal-bg);
+            backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%);
             border: 1px solid var(--glass-border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
         }
 
         .nav-card {
             background: var(--card-bg); border: 1px solid var(--glass-border);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative; overflow: hidden;
-        }
-        .nav-card::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
-            opacity: 0.6;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative; overflow: hidden; transform: translateZ(0);
         }
         .nav-card:hover {
-            transform: translateY(-4px); background: var(--card-hover);
+            transform: translateY(-4px) scale(1.01); background: var(--card-hover);
             box-shadow: var(--shadow-glow), 0 10px 20px -5px rgba(0,0,0,0.1);
             border-color: var(--text-accent); z-index: 10;
         }
-        .nav-card:active { transform: scale(0.97); }
+        .nav-card:active { transform: scale(0.96); }
 
         .search-input {
             background: rgba(var(--card-rgb), 0.3); border: 1px solid var(--glass-border);
             color: var(--text-primary); transition: all 0.3s;
+            backdrop-filter: blur(10px);
         }
         .search-input:focus {
             background: var(--card-bg); border-color: var(--text-accent);
@@ -133,15 +140,16 @@ const HTML_TEMPLATE = `
         }
         .pill-tag.active {
             background: var(--text-accent); color: white; border-color: transparent;
-            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
         }
 
         .context-menu {
             background: var(--modal-bg); border: 1px solid var(--glass-border);
-            border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
             padding: 6px; position: fixed; z-index: 100; min-width: 160px;
-            backdrop-filter: blur(20px);
-            animation: menuPop 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(30px);
+            transform-origin: top left;
+            animation: menuPop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         @keyframes menuPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         
@@ -152,17 +160,20 @@ const HTML_TEMPLATE = `
         .menu-item:hover { background: var(--text-accent); color: white; }
         .menu-item.danger:hover { background: #ef4444; color: white; }
 
-        .bg-layer { position: fixed; inset: 0; z-index: -10; background-size: cover; background-position: center; transition: opacity 0.5s ease; }
-        video.bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -10; transition: opacity 0.5s ease; }
+        .bg-layer { position: fixed; inset: 0; z-index: -10; background-size: cover; background-position: center; transition: opacity 0.5s ease; will-change: opacity; }
+        video.bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -10; transition: opacity 0.5s ease; will-change: opacity; }
         
         .zen-hidden { opacity: 0; pointer-events: none; transform: translateY(20px); transition: all 0.5s ease; }
         .link-icon { width: var(--icon-size); height: var(--icon-size); transition: transform 0.3s; opacity: var(--icon-opacity, 1); object-fit: contain; }
         .nav-card:hover .link-icon { transform: scale(1.15) rotate(3deg); }
-        .group-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; overflow: hidden; }
+        .group-content { transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out; overflow: hidden; }
         .memo-area { resize: none; outline: none; border: none; background: transparent; font-family: 'Plus Jakarta Sans', monospace; line-height: 1.6; }
         
         ::-webkit-scrollbar { width: 0px; }
     </style>
+    <script>
+        window.CF_COORDS = ${JSON.stringify(context.coords)};
+    </script>
 </head>
 <body x-data="app()" :class="{ 'light-theme': theme === 'light' }" @click="closeMenu()" @keydown.window="handleKeydown($event)" @contextmenu.prevent>
 
@@ -174,7 +185,7 @@ const HTML_TEMPLATE = `
         <div class="bg-layer" :style="\`background-image: url('\${bgUrl}'); filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></div>
     </template>
 
-    <div x-show="zenMode" @click="zenMode = false" class="fixed inset-0 z-[5] cursor-zoom-out" title="点击空白处返回主页"></div>
+    <div x-show="zenMode" @click="zenMode = false" x-transition.opacity class="fixed inset-0 z-[5] cursor-zoom-out" title="点击空白处返回主页"></div>
 
     <nav class="sticky top-0 z-50 header-glass px-4 py-3 mb-8 transition-all duration-500" 
          :style="\`background-color: rgba(var(--card-rgb), \${(settings.headerOpacity ?? 75) / 100})\`"
@@ -188,10 +199,11 @@ const HTML_TEMPLATE = `
                     <div class="font-bold text-lg tracking-tight leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-primary)] to-[var(--text-secondary)]">
                         欢迎光临
                     </div>
-                    <div class="text-[11px] font-medium tracking-wide flex items-center gap-3 opacity-80" style="color: var(--text-secondary)">
+                    <div class="text-sm font-medium tracking-wide flex items-center gap-3 opacity-90" style="color: var(--text-secondary)">
                         <span x-text="timeStr"></span>
-                        <span x-show="weather.temp" class="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded ml-1 border border-white/5">
-                            <i class="fa-solid fa-temperature-half text-[10px]"></i> <span x-text="weather.temp + '°'"></span>
+                        <span x-show="weather.temp" class="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-lg ml-1 border border-white/10 shadow-sm transition-colors hover:bg-white/15 cursor-default">
+                            <i class="fa-solid fa-temperature-half text-sm opacity-80"></i> 
+                            <span x-text="weather.temp + '°'" class="font-bold"></span>
                         </span>
                     </div>
                 </div>
@@ -199,18 +211,18 @@ const HTML_TEMPLATE = `
 
             <div class="flex items-center gap-3">
                 <template x-if="status.saving"><div class="animate-spin w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div></template>
-                <div x-show="status.unsaved" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+                <div x-show="status.unsaved" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="有未保存的更改"></div>
                 
-                <button @click="toggleTheme()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" title="切换主题">
+                <button @click="toggleTheme()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition" title="切换主题">
                     <i class="fa-solid transition-transform duration-500" :class="theme === 'dark' ? 'fa-moon rotate-0' : 'fa-sun -rotate-90'"></i>
                 </button>
                 
-                <button @click="toggleZen()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" title="禅模式 (Shift+Z)">
+                <button @click="toggleZen()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition" title="禅模式 (Shift+Z)">
                     <i class="fa-solid fa-leaf"></i>
                 </button>
 
                 <template x-if="!isLoggedIn">
-                    <button @click="modals.login = true" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm">
+                    <button @click="modals.login = true" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition">
                         <i class="fa-solid fa-user-astronaut"></i>
                     </button>
                 </template>
@@ -249,11 +261,11 @@ const HTML_TEMPLATE = `
                 <input x-ref="searchInput" type="text" x-model="search" @keydown.enter="doSearch()" 
                     @focus="startZenTimer()" @blur="clearZenTimer()"
                     :placeholder="getSearchPlaceholder()" 
-                    class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-xl backdrop-blur-md">
+                    class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-2xl backdrop-blur-md">
                 <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass text-lg"></i>
                 </div>
-                <div x-show="search" @click="search = ''" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition">
+                <div x-show="search" @click="search = ''; $refs.searchInput.focus()" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition">
                     <i class="fa-solid fa-times"></i>
                 </div>
             </div>
@@ -263,7 +275,7 @@ const HTML_TEMPLATE = `
             <template x-for="group in filteredGroups" :key="group.id">
                 <div class="group-container transition-all duration-300" :data-id="group.id" x-data="{ collapsed: false }">
                     <div class="flex items-center justify-between mb-3 px-1 group/header select-none">
-                        <div class="flex items-center gap-3 cursor-pointer" @click="collapsed = !collapsed">
+                        <div class="flex items-center gap-3 cursor-pointer opacity-80 hover:opacity-100 transition" @click="collapsed = !collapsed">
                             <i class="fa-solid fa-chevron-down text-xs transition-transform duration-300" :class="collapsed ? '-rotate-90' : ''" style="color: var(--text-secondary)"></i>
                             <h2 class="text-lg font-bold tracking-tight flex items-center gap-2" style="color: var(--text-primary)">
                                 <span x-text="group.name"></span>
@@ -283,7 +295,7 @@ const HTML_TEMPLATE = `
                         </template>
                     </div>
 
-                    <div class="group-content" :style="collapsed ? 'max-height: 0px; opacity: 0' : 'max-height: 2000px; opacity: 1'">
+                    <div class="group-content" :style="collapsed ? 'max-height: 0px; opacity: 0' : 'max-height: 3000px; opacity: 1'">
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sortable-items min-h-[10px]" 
                              :data-group-id="group.id"
                              x-init="initSortable($el)">
@@ -320,14 +332,14 @@ const HTML_TEMPLATE = `
         
         <div x-show="filteredGroups.length === 0 && !zenMode" class="text-center py-20 opacity-40">
             <template x-if="!search">
-                <div>
+                <div x-cloak>
                     <i class="fa-brands fa-space-awesome text-6xl mb-6 animate-pulse"></i>
                     <p class="text-sm tracking-wide">你的数字宇宙空空如也</p>
                     <button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button>
                 </div>
             </template>
             <template x-if="search">
-                <div>
+                <div x-cloak>
                     <i class="fa-solid fa-filter-circle-xmark text-5xl mb-4"></i>
                     <p class="text-sm">本地未找到 "<span x-text="search"></span>"</p>
                     <div class="mt-4 text-xs">按 <kbd class="px-2 py-1 rounded bg-white/10 font-mono">Enter</kbd> 搜索全网</div>
@@ -337,7 +349,7 @@ const HTML_TEMPLATE = `
     </main>
     
     <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v10.4</a>
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v11.2</a>
     </footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
@@ -354,7 +366,7 @@ const HTML_TEMPLATE = `
                 <div class="text-xs opacity-50" x-text="status.saving ? '保存中...' : '自动保存'"></div>
             </div>
             <textarea x-model="settings.memo" @input.debounce.1000ms="saveSettings()" class="memo-area w-full flex-1 text-base p-4 rounded-xl bg-gray-500/5 text-white/90" placeholder="写下你的想法..."></textarea>
-            <div class="mt-4 flex justify-end"><button @click="modals.memo = false" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">关闭</button></div>
+            <div class="mt-4 flex justify-end"><button @click="modals.memo = false" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/20">关闭</button></div>
         </div>
     </div>
 
@@ -386,7 +398,7 @@ const HTML_TEMPLATE = `
                 <input type="text" x-model="linkForm.desc" placeholder="描述 (可选)" class="search-input w-full p-3 rounded-xl">
                 <div class="flex gap-3">
                     <div class="flex-1 relative"><input type="text" x-model="linkForm.iconUrl" placeholder="图标 URL" class="search-input w-full p-3 pl-9 rounded-xl text-sm"><img :src="linkForm.iconUrl || 'about:blank'" class="absolute left-2.5 top-2.5 w-5 h-5 rounded object-contain opacity-50" onerror="this.style.display='none'" onload="this.style.display='block'"></div>
-                    <div class="flex items-center justify-center px-4 rounded-xl cursor-pointer border transition select-none" :class="linkForm.isPrivate ? 'border-amber-500/50 bg-amber-500/10 text-amber-500' : 'border-gray-500/20 bg-gray-500/5 text-gray-400'" @click="linkForm.isPrivate = !linkForm.isPrivate"><i class="fa-solid" :class="linkForm.isPrivate ? 'fa-lock' : 'fa-lock-open'"></i></div>
+                    <div class="flex items-center justify-center px-4 rounded-xl cursor-pointer border transition select-none" :class="linkForm.isPrivate ? 'border-amber-500/50 bg-amber-500/10 text-amber-500' : 'border-gray-500/20 bg-gray-500/5 text-gray-400'" @click="linkForm.isPrivate = !linkForm.isPrivate" title="隐私模式"><i class="fa-solid" :class="linkForm.isPrivate ? 'fa-lock' : 'fa-lock-open'"></i></div>
                 </div>
             </div>
             <div class="mt-8 flex gap-3"><button @click="modals.link = false" class="flex-1 py-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/20 transition font-medium" style="color: var(--text-secondary)">取消</button><button @click="saveLink()" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-500/20">保存</button></div>
@@ -472,9 +484,11 @@ const HTML_TEMPLATE = `
 
                 async init() {
                     setInterval(() => { const now = new Date(); this.timeStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }, 1000);
-                    this.fetchWeather(); await Promise.all([this.checkStatus(), this.syncData('GET')]);
+                    this.fetchWeather(); 
+                    await Promise.all([this.checkStatus(), this.syncData('GET')]);
                     if(this.token) await this.verifyToken();
-                    this.initGroupSortable(); this.updateCSSVars(); this.status.loading = false;
+                    this.initGroupSortable(); this.updateCSSVars(); 
+                    setTimeout(() => { this.status.loading = false; }, 100);
                 },
 
                 handleKeydown(e) {
@@ -492,7 +506,23 @@ const HTML_TEMPLATE = `
 
                 setEngine(val) { this.settings.engine = val; this.saveSettings(); },
 
-                async fetchWeather() { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(async (pos) => { try { const res = await fetch(\`https://api.open-meteo.com/v1/forecast?latitude=\${pos.coords.latitude}&longitude=\${pos.coords.longitude}&current_weather=true\`); const data = await res.json(); if(data.current_weather) this.weather.temp = Math.round(data.current_weather.temperature); } catch(e) {} }); },
+                async fetchWeather() { 
+                    if (window.CF_COORDS && window.CF_COORDS.lat) {
+                         this.getWeather(window.CF_COORDS.lat, window.CF_COORDS.lon);
+                         return;
+                    }
+                    if (!navigator.geolocation) return; 
+                    navigator.geolocation.getCurrentPosition(async (pos) => { 
+                        this.getWeather(pos.coords.latitude, pos.coords.longitude);
+                    }); 
+                },
+                async getWeather(lat, lon) {
+                    try { 
+                        const res = await fetch(\`https://api.open-meteo.com/v1/forecast?latitude=\${lat}&longitude=\${lon}&current_weather=true\`); 
+                        const data = await res.json(); 
+                        if(data.current_weather) this.weather.temp = Math.round(data.current_weather.temperature); 
+                    } catch(e) {}
+                },
                 
                 updateCSSVars() { 
                     document.documentElement.style.setProperty('--icon-size', this.settings.iconSize + 'px'); 
@@ -508,8 +538,38 @@ const HTML_TEMPLATE = `
                 get isVideoBg() { return this.settings.bgType === 'custom' && this.settings.customBg && this.settings.customBg.endsWith('.mp4'); },
                 getSearchPlaceholder() { if (this.settings.engine === 'custom') return 'Search with Custom Engine...'; return 'Search with ' + (this.engines.find(e => e.val === this.settings.engine)?.name || 'Google') + '...'; },
 
-                initGroupSortable() { const el = document.getElementById('groups-container'); if(!el) return; new Sortable(el, { animation: 200, handle: '.handle-group', disabled: !this.isLoggedIn, ghostClass: 'opacity-50', onEnd: (evt) => { const item = this.groups.splice(evt.oldIndex, 1)[0]; this.groups.splice(evt.newIndex, 0, item); this.saveAll(); } }); },
-                initSortable(el) { new Sortable(el, { group: 'shared-links', animation: 200, delay: 100, delayOnTouchOnly: true, disabled: !this.isLoggedIn || !!this.search, ghostClass: 'opacity-40', dragClass: 'opacity-100', onEnd: (evt) => { if (!evt.to || !evt.from) return; const fromG = this.groups.find(g => String(g.id) === evt.from.dataset.groupId); const toG = this.groups.find(g => String(g.id) === evt.to.dataset.groupId); if (fromG && toG) { const item = fromG.items.splice(evt.oldIndex, 1)[0]; toG.items.splice(evt.newIndex, 0, item); this.saveAll(); } } }); },
+                initGroupSortable() { 
+                    const el = document.getElementById('groups-container'); 
+                    if(!el || this.groupSortable) return; 
+                    this.groupSortable = new Sortable(el, { 
+                        animation: 200, handle: '.handle-group', disabled: !this.isLoggedIn, ghostClass: 'opacity-50', 
+                        onEnd: (evt) => { 
+                            const item = this.groups.splice(evt.oldIndex, 1)[0]; 
+                            this.groups.splice(evt.newIndex, 0, item); 
+                            this.saveAll(); 
+                        } 
+                    }); 
+                },
+                initSortable(el) { 
+                    if(el._sortable) return;
+                    el._sortable = new Sortable(el, { 
+                        group: 'shared-links', animation: 200, delay: 100, delayOnTouchOnly: true, 
+                        disabled: !this.isLoggedIn || !!this.search, ghostClass: 'opacity-40', dragClass: 'opacity-100', 
+                        onEnd: (evt) => { 
+                            if (!evt.to || !evt.from) return; 
+                            const fromG = this.groups.find(g => String(g.id) === evt.from.dataset.groupId); 
+                            const toG = this.groups.find(g => String(g.id) === evt.to.dataset.groupId); 
+                            if (fromG && toG) { 
+                                const item = fromG.items[evt.oldIndex];
+                                if(item) {
+                                    fromG.items.splice(evt.oldIndex, 1);
+                                    toG.items.splice(evt.newIndex, 0, item);
+                                    this.saveAll();
+                                }
+                            } 
+                        } 
+                    }); 
+                },
 
                 showContextMenu(e, link, groupId) { if(!this.isLoggedIn) return; this.menu.targetLink = link; this.menu.targetGroupId = groupId; let x = e.clientX, y = e.clientY; if (window.innerWidth - x < 180) x -= 170; this.menu.x = x; this.menu.y = y; this.menu.show = true; },
                 closeMenu() { this.menu.show = false; },
@@ -528,9 +588,8 @@ const HTML_TEMPLATE = `
                 async saveAll() { 
                     if(this.isLoggedIn) { 
                         await this.syncData('POST', { groups: this.groups, settings: this.settings }); 
-                    } else {
-                        // 如果未登录却尝试保存，给出提示（用于处理潜在的边界情况）
-                        if(this.settings.engine === 'custom') this.showToast('无权限：请先登录', 'error');
+                    } else if(this.settings.engine === 'custom') { 
+                        this.showToast('请先登录', 'error'); 
                     }
                 }, 
                 async saveSettings() { await this.saveAll(); },
@@ -567,17 +626,36 @@ class MetaHandler {
 export default {
     async fetch(request, env) {
         const url = new URL(request.url); const path = url.pathname;
-        const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" };
+        const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Referrer-Policy": "no-referrer" };
         if (request.method === "OPTIONS") return new Response(null, { headers: cors });
 
         try {
-            if (path === "/" || path === "/index.html") return new Response(HTML_TEMPLATE, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+            // PWA Manifest Route - Uses the Global SITE_ICON
+            if (path === "/manifest.json") {
+                const manifest = {
+                    name: "Nexus", short_name: "Nexus", start_url: "/", display: "standalone",
+                    background_color: "#0f172a", theme_color: "#0f172a",
+                    icons: [{ src: SITE_ICON, sizes: "72x72", type: "image/png" }]
+                };
+                return new Response(JSON.stringify(manifest), { headers: { "Content-Type": "application/json", ...cors } });
+            }
+
+            // Main UI Route - Injecting Cloudflare Location Data
+            if (path === "/" || path === "/index.html") {
+                const coords = { lat: request.cf?.latitude || null, lon: request.cf?.longitude || null };
+                return new Response(HTML_TEMPLATE({ coords }), { headers: { "Content-Type": "text/html;charset=UTF-8", "X-Frame-Options": "DENY" } });
+            }
+            
             if (path === "/api/status") { const admin = await env.NAV_DB.get("admin_hash"); return new Response(JSON.stringify({ setup: !!admin }), { headers: cors }); }
 
             if (path === "/api/meta") {
                 const targetUrl = url.searchParams.get("url"); if (!targetUrl) return new Response("Missing URL", { status: 400 });
                 try {
-                    const response = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NexusBot/10.3)' }, redirect: 'follow' });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    const response = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NexusBot/11.0)' }, redirect: 'follow', signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
                     const state = { title: null, description: null, image: null, inTitle: false };
                     await new HTMLRewriter().on("title", new MetaHandler(state)).on("meta", new MetaHandler(state)).transform(response).text();
                     return new Response(JSON.stringify({ title: state.title ? state.title.trim() : "", description: state.description ? state.description.trim() : "", icon: "" }), { headers: cors });
