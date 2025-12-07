@@ -1,6 +1,8 @@
 /**
- * Cloudflare Worker Navigation Site v10.3 (Auto Zen Focus Edition)
- * Features: Auto-Enter Zen Mode on Search Focus (3s), Click-to-Exit, Header Polish
+ * Cloudflare Worker Navigation Site v10.4 (Strict Security UI Edition)
+ * Changelog: 
+ * - Hided 'Custom' engine button for guests to prevent confusion.
+ * - Added toast feedback for unauthorized save attempts.
  */
 
 const HTML_TEMPLATE = `
@@ -184,7 +186,7 @@ const HTML_TEMPLATE = `
                 </div>
                 <div class="hidden sm:block">
                     <div class="font-bold text-lg tracking-tight leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-primary)] to-[var(--text-secondary)]">
-                        NEXUS
+                        欢迎光临
                     </div>
                     <div class="text-[11px] font-medium tracking-wide flex items-center gap-3 opacity-80" style="color: var(--text-secondary)">
                         <span x-text="timeStr"></span>
@@ -241,9 +243,11 @@ const HTML_TEMPLATE = `
                         <i :class="eng.icon" class="mr-1"></i> <span x-text="eng.name"></span>
                     </button>
                 </template>
-                <button @click="modals.settings = true" class="pill-tag" :class="{ 'active': settings.engine === 'custom' }">
-                    <i class="fa-solid fa-bolt mr-1"></i> 自定义
-                </button>
+                <template x-if="isLoggedIn">
+                    <button @click="modals.settings = true" class="pill-tag" :class="{ 'active': settings.engine === 'custom' }">
+                        <i class="fa-solid fa-bolt mr-1"></i> 自定义
+                    </button>
+                </template>
             </div>
             
             <div class="relative group transform transition-all duration-300 focus-within:scale-105">
@@ -338,7 +342,7 @@ const HTML_TEMPLATE = `
     </main>
     
     <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v10.3</a>
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v10.4</a>
     </footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
@@ -364,10 +368,10 @@ const HTML_TEMPLATE = `
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
             <h2 class="text-xl font-bold mb-6 text-center" style="color: var(--text-primary)" x-text="needsSetup ? '初始化管理员' : '身份验证'"></h2>
             <form @submit.prevent="handleAuth">
-                <input type="text" x-model="authForm.username" placeholder="Username" class="search-input w-full mb-3 p-3.5 rounded-xl text-center" required>
-                <input type="password" x-model="authForm.password" placeholder="Password" class="search-input w-full mb-8 p-3.5 rounded-xl text-center" required>
+                <input type="text" x-model="authForm.username" placeholder="用户名" class="search-input w-full mb-3 p-3.5 rounded-xl text-center" required>
+                <input type="password" x-model="authForm.password" placeholder="密码" class="search-input w-full mb-8 p-3.5 rounded-xl text-center" required>
                 <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-indigo-500/20 transition transform active:scale-95 disabled:opacity-50" :disabled="status.submitting">
-                    <span x-show="!status.submitting" x-text="needsSetup ? '系统初始化' : '解锁控制台'"></span>
+                    <span x-show="!status.submitting" x-text="needsSetup ? '系统初始化' : '登录控制台'"></span>
                     <span x-show="status.submitting"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
                 </button>
             </form>
@@ -416,10 +420,6 @@ const HTML_TEMPLATE = `
                         <button @click="settings.bgType = 'custom'" class="flex-1 py-2 rounded-lg text-xs font-medium transition border" :class="settings.bgType === 'custom' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-500/20 hover:bg-gray-500/10'" style="color: var(--text-secondary)">Custom URL</button>
                     </div>
                     <input x-show="settings.bgType === 'custom'" type="text" x-model="settings.customBg" placeholder="Image or Video (.mp4) URL" class="search-input w-full p-2.5 rounded-lg text-xs">
-                </div>
-                <div class="p-4 rounded-xl bg-gray-500/5 border border-gray-500/10">
-                    <label class="text-xs font-bold uppercase tracking-wider mb-3 block opacity-50" style="color: var(--text-secondary)">自定义搜索</label>
-                    <input type="text" x-model="settings.customSearchUrl" placeholder="例如: https://github.com/search?q=" class="search-input w-full p-2.5 rounded-lg text-xs">
                 </div>
                 <div class="p-4 rounded-xl bg-gray-500/5 border border-gray-500/10">
                     <label class="text-xs font-bold uppercase tracking-wider mb-3 block opacity-50" style="color: var(--text-secondary)">视觉 & 布局</label>
@@ -530,7 +530,15 @@ const HTML_TEMPLATE = `
                 deleteGroup() { if(!confirm('删除此分组及所有内容?')) return; this.groups = this.groups.filter(x => String(x.id) !== String(this.groupForm.id)); this.saveAll(); this.modals.group = false; },
 
                 async syncData(method, payload = null) { const headers = { 'Content-Type': 'application/json' }; if(this.token) headers['Authorization'] = this.token; if(method === 'POST') this.status.saving = true; try { const res = await fetch('/api/data', { method, headers, body: payload ? JSON.stringify(payload) : null }); if(res.status === 401) { this.logout(); return; } if(method === 'GET') { const data = await res.json(); this.groups = (Array.isArray(data.data) && data.data.length > 0 && !data.data[0].items) ? [{ id: 'default', name: 'Home', items: data.data }] : (data.data || []); if(data.settings) { this.settings = { ...this.settings, ...data.settings }; this.updateCSSVars(); } } else { this.status.unsaved = false; } } catch(e) { if(method === 'POST') this.status.unsaved = true; } finally { this.status.saving = false; } },
-                async saveAll() { if(this.isLoggedIn) await this.syncData('POST', { groups: this.groups, settings: this.settings }); }, async saveSettings() { await this.saveAll(); },
+                async saveAll() { 
+                    if(this.isLoggedIn) { 
+                        await this.syncData('POST', { groups: this.groups, settings: this.settings }); 
+                    } else {
+                        // 如果未登录却尝试保存，给出提示（用于处理潜在的边界情况）
+                        if(this.settings.engine === 'custom') this.showToast('无权限：请先登录', 'error');
+                    }
+                }, 
+                async saveSettings() { await this.saveAll(); },
                 async checkStatus() { try { const res = await fetch('/api/status'); this.needsSetup = !(await res.json()).setup; if(this.needsSetup) this.modals.login = true; } catch(e) {} },
                 async handleAuth() { this.status.submitting = true; const endpoint = this.needsSetup ? '/api/setup' : '/api/login'; try { const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.authForm) }); if(res.ok) { const data = await res.json(); this.token = data.token; localStorage.setItem('nexus_token', this.token); this.isLoggedIn = true; this.modals.login = false; this.needsSetup = false; this.syncData('GET'); this.showToast('欢迎回来'); setTimeout(() => { this.initGroupSortable(); }, 500); } else { this.showToast('验证失败', 'error'); } } catch(e) {} this.status.submitting = false; },
                 async verifyToken() { const res = await fetch('/api/check', { headers: { 'Authorization': this.token } }); if(!res.ok) this.logout(); else this.isLoggedIn = true; },
