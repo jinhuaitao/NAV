@@ -243,11 +243,6 @@ const HTML_TEMPLATE = `
                         <i :class="eng.icon" class="mr-1"></i> <span x-text="eng.name"></span>
                     </button>
                 </template>
-                <template x-if="isLoggedIn">
-                    <button @click="modals.settings = true" class="pill-tag" :class="{ 'active': settings.engine === 'custom' }">
-                        <i class="fa-solid fa-bolt mr-1"></i> 自定义
-                    </button>
-                </template>
             </div>
             
             <div class="relative group transform transition-all duration-300 focus-within:scale-105">
