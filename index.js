@@ -1,9 +1,9 @@
 /**
- * Cloudflare Worker Navigation Site v11.2 (Icon Personalized Edition)
+ * Cloudflare Worker Navigation Site v12.4 (Colorful Weather Edition)
  * Optimization Log:
- * - [Icon] Centralized 'SITE_ICON' configuration.
- * - [Icon] Updated default icon to 'Atom' (⚛️) to match the Nexus theme.
- * - [PWA] Synced PWA Manifest and Apple Touch Icon with the new site icon.
+ * - [UI] Weather icons are now Colorful Images (Twemoji) instead of monochrome text.
+ * - [UX] Retained interaction optimizations (Search/Zen mode).
+ * - [System] Unified icon style with the site logo.
  */
 
 // 🟢 配置区域：在这里更换你的网站图标链接
@@ -201,8 +201,9 @@ const HTML_TEMPLATE = (context) => `
                     </div>
                     <div class="text-sm font-medium tracking-wide flex items-center gap-3 opacity-90" style="color: var(--text-secondary)">
                         <span x-text="timeStr"></span>
-                        <span x-show="weather.temp" class="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-lg ml-1 border border-white/10 shadow-sm transition-colors hover:bg-white/15 cursor-default">
-                            <i class="fa-solid fa-temperature-half text-sm opacity-80"></i> 
+                        
+                        <span x-show="weather.temp" class="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-lg ml-1 border border-white/10 shadow-sm transition-colors hover:bg-white/15 cursor-default group" :title="weather.desc">
+                            <img :src="weather.icon" class="w-5 h-5 object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform" x-show="weather.icon">
                             <span x-text="weather.temp + '°'" class="font-bold"></span>
                         </span>
                     </div>
@@ -258,14 +259,16 @@ const HTML_TEMPLATE = (context) => `
             </div>
             
             <div class="relative group transform transition-all duration-300 focus-within:scale-105">
-                <input x-ref="searchInput" type="text" x-model="search" @keydown.enter="doSearch()" 
+                <input x-ref="searchInput" type="text" x-model="search" 
+                    @keydown.enter="doSearch()" 
                     @focus="startZenTimer()" @blur="clearZenTimer()"
+                    @input="clearZenTimer()"
                     :placeholder="getSearchPlaceholder()" 
-                    class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-2xl backdrop-blur-md">
-                <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none">
+                    class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-2xl backdrop-blur-md relative z-10">
+                <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none z-20">
                     <i class="fa-solid fa-magnifying-glass text-lg"></i>
                 </div>
-                <div x-show="search" @click="search = ''; $refs.searchInput.focus()" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition">
+                <div x-show="search" @click="search = ''; $refs.searchInput.focus()" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition z-20">
                     <i class="fa-solid fa-times"></i>
                 </div>
             </div>
@@ -280,7 +283,6 @@ const HTML_TEMPLATE = (context) => `
                             <h2 class="text-lg font-bold tracking-tight flex items-center gap-2" style="color: var(--text-primary)">
                                 <span x-text="group.name"></span>
                                 <i x-show="group.isPrivate" class="fa-solid fa-lock text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full"></i>
-                                <span x-show="search" class="text-xs font-normal opacity-50 px-2 border border-white/10 rounded-full" x-text="group.items.length + ' results'"></span>
                             </h2>
                             <template x-if="isLoggedIn && !search">
                                 <div class="cursor-move handle-group opacity-0 group-hover/header:opacity-100 p-1.5 hover:bg-white/5 rounded text-xs transition" style="color: var(--text-secondary)" @click.stop>
@@ -331,25 +333,16 @@ const HTML_TEMPLATE = (context) => `
         </div>
         
         <div x-show="filteredGroups.length === 0 && !zenMode" class="text-center py-20 opacity-40">
-            <template x-if="!search">
-                <div x-cloak>
-                    <i class="fa-brands fa-space-awesome text-6xl mb-6 animate-pulse"></i>
-                    <p class="text-sm tracking-wide">你的数字宇宙空空如也</p>
-                    <button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button>
-                </div>
-            </template>
-            <template x-if="search">
-                <div x-cloak>
-                    <i class="fa-solid fa-filter-circle-xmark text-5xl mb-4"></i>
-                    <p class="text-sm">本地未找到 "<span x-text="search"></span>"</p>
-                    <div class="mt-4 text-xs">按 <kbd class="px-2 py-1 rounded bg-white/10 font-mono">Enter</kbd> 搜索全网</div>
-                </div>
-            </template>
+            <div x-cloak>
+                <i class="fa-brands fa-space-awesome text-6xl mb-6 animate-pulse"></i>
+                <p class="text-sm tracking-wide">你的数字宇宙空空如也</p>
+                <button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button>
+            </div>
         </div>
     </main>
     
     <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v11.2</a>
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v12.4</a>
     </footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
@@ -465,7 +458,7 @@ const HTML_TEMPLATE = (context) => `
     <script>
         function app() {
             return {
-                groups: [], search: '', timeStr: '', weather: { temp: null },
+                groups: [], search: '', timeStr: '', weather: { temp: null, code: null, icon: null, desc: '' },
                 theme: localStorage.getItem('theme') || 'dark', isLoggedIn: false, needsSetup: false, zenMode: false, token: localStorage.getItem('nexus_token'),
                 status: { loading: true, saving: false, submitting: false, unsaved: false, fetchingMeta: false },
                 modals: { login: false, link: false, group: false, settings: false, memo: false },
@@ -488,6 +481,11 @@ const HTML_TEMPLATE = (context) => `
                     await Promise.all([this.checkStatus(), this.syncData('GET')]);
                     if(this.token) await this.verifyToken();
                     this.initGroupSortable(); this.updateCSSVars(); 
+                    
+                    const params = new URLSearchParams(window.location.search);
+                    if(params.get('action') === 'search') setTimeout(() => this.$refs.searchInput.focus(), 500);
+                    if(params.get('action') === 'memo') setTimeout(() => { if(this.isLoggedIn) this.modals.memo = true; else this.showToast('请先登录使用便签', 'error'); }, 500);
+
                     setTimeout(() => { this.status.loading = false; }, 100);
                 },
 
@@ -501,7 +499,15 @@ const HTML_TEMPLATE = (context) => `
                 closeAllModals() { this.modals.login = false; this.modals.link = false; this.modals.group = false; this.modals.settings = false; this.modals.memo = false; this.closeMenu(); },
                 toggleZen() { this.zenMode = !this.zenMode; },
                 
-                startZenTimer() { if (this.zenMode) return; this.clearZenTimer(); this.zenTimer = setTimeout(() => { if (!this.zenMode && document.activeElement === this.$refs.searchInput) { this.zenMode = true; } }, 3000); },
+                startZenTimer() { 
+                    if (this.zenMode || this.search) return; 
+                    this.clearZenTimer(); 
+                    this.zenTimer = setTimeout(() => { 
+                        if (!this.zenMode && !this.search && document.activeElement === this.$refs.searchInput) { 
+                            this.zenMode = true; 
+                        } 
+                    }, 3000); 
+                },
                 clearZenTimer() { if (this.zenTimer) { clearTimeout(this.zenTimer); this.zenTimer = null; } },
 
                 setEngine(val) { this.settings.engine = val; this.saveSettings(); },
@@ -520,8 +526,29 @@ const HTML_TEMPLATE = (context) => `
                     try { 
                         const res = await fetch(\`https://api.open-meteo.com/v1/forecast?latitude=\${lat}&longitude=\${lon}&current_weather=true\`); 
                         const data = await res.json(); 
-                        if(data.current_weather) this.weather.temp = Math.round(data.current_weather.temperature); 
+                        if(data.current_weather) {
+                            this.weather.temp = Math.round(data.current_weather.temperature);
+                            this.weather.code = data.current_weather.weathercode;
+                            const info = this.getWeatherIcon(this.weather.code);
+                            this.weather.icon = info.url;
+                            this.weather.desc = info.desc;
+                        }
                     } catch(e) {}
+                },
+                getWeatherIcon(code) {
+                    // Mapping WMO codes to Twemoji images (72x72 PNGs)
+                    const base = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/";
+                    // Default: Sun
+                    let icon = "2600.png"; let desc = "Sunny";
+                    
+                    if ([1, 2, 3].includes(code)) { icon = "26c5.png"; desc = "Partly Cloudy"; } // ⛅
+                    else if ([45, 48].includes(code)) { icon = "1f32b.png"; desc = "Fog"; } // 🌫️
+                    else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = "1f327.png"; desc = "Rain"; } // 🌧️
+                    else if ([71, 73, 75, 77, 85, 86].includes(code)) { icon = "2744.png"; desc = "Snow"; } // ❄️
+                    else if ([80, 81, 82].includes(code)) { icon = "1f326.png"; desc = "Showers"; } // 🌦️
+                    else if ([95, 96, 99].includes(code)) { icon = "26c8.png"; desc = "Thunderstorm"; } // ⛈️
+                    
+                    return { url: base + icon, desc: desc };
                 },
                 
                 updateCSSVars() { 
@@ -533,7 +560,7 @@ const HTML_TEMPLATE = (context) => `
                 },
                 toggleTheme() { this.theme = this.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', this.theme); },
 
-                get filteredGroups() { if(!this.search) return this.groups; const q = this.search.toLowerCase(); return this.groups.map(g => ({ ...g, items: g.items.filter(i => i.title.toLowerCase().includes(q) || i.url.includes(q) || (i.desc && i.desc.toLowerCase().includes(q))) })).filter(g => g.items.length > 0); },
+                get filteredGroups() { return this.groups; },
                 get bgUrl() { if (this.settings.bgType === 'custom' && this.settings.customBg && !this.isVideoBg) return this.settings.customBg; return 'https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN'; },
                 get isVideoBg() { return this.settings.bgType === 'custom' && this.settings.customBg && this.settings.customBg.endsWith('.mp4'); },
                 getSearchPlaceholder() { if (this.settings.engine === 'custom') return 'Search with Custom Engine...'; return 'Search with ' + (this.engines.find(e => e.val === this.settings.engine)?.name || 'Google') + '...'; },
@@ -635,7 +662,23 @@ export default {
                 const manifest = {
                     name: "Nexus", short_name: "Nexus", start_url: "/", display: "standalone",
                     background_color: "#0f172a", theme_color: "#0f172a",
-                    icons: [{ src: SITE_ICON, sizes: "72x72", type: "image/png" }]
+                    icons: [
+                        { src: SITE_ICON, sizes: "72x72", type: "image/png" },
+                        { src: SITE_ICON, sizes: "192x192", type: "image/png", purpose: "any maskable" }
+                    ],
+                    // Long Press Shortcuts
+                    shortcuts: [
+                        {
+                            name: "快速搜索",
+                            url: "/?action=search",
+                            icons: [{ src: SITE_ICON, sizes: "96x96", type: "image/png" }]
+                        },
+                        {
+                            name: "我的便签",
+                            url: "/?action=memo",
+                            icons: [{ src: SITE_ICON, sizes: "96x96", type: "image/png" }]
+                        }
+                    ]
                 };
                 return new Response(JSON.stringify(manifest), { headers: { "Content-Type": "application/json", ...cors } });
             }
