@@ -326,6 +326,15 @@ const HTML_TEMPLATE = `
             <button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button>
         </div>
     </main>
+    
+    <footer class="text-center pb-8 -mt-16 relative z-0">
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" 
+           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-40 hover:opacity-100 transition-all duration-300 hover:bg-white/5 group" 
+           style="color: var(--text-secondary)">
+            <i class="fa-brands fa-github text-sm group-hover:text-white transition-colors"></i>
+            <span class="text-xs font-mono group-hover:text-indigo-400 transition-colors">欢迎光临</span>
+        </a>
+    </footer>
 
     <div x-show="menu.show" 
          :style="\`top: \${menu.y}px; left: \${menu.x}px\`" 
