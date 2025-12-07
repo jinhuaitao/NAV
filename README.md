@@ -1,4 +1,4 @@
-##第一步：创建 Worker
+### 第一步：创建 Worker
 登录 Cloudflare Dashboard。
 
 在左侧菜单点击 Workers & Pages。
@@ -15,7 +15,7 @@
 
 点击右上角的 Deploy 保存。
 
-##第二步：创建 KV 数据库 (存数据的地方)
+### 第二步：创建 KV 数据库 (存数据的地方)
 回到 Cloudflare 的 Workers & Pages 主界面。
 
 在左侧菜单点击 KV。
@@ -24,7 +24,7 @@
 
 输入名字 NAV_DB (名字其实随意，但建议用这个方便记忆)，点击 Add。
 
-##第三步：绑定 KV 到 Worker (关键步骤！)
+### 第三步：绑定 KV 到 Worker (关键步骤！)
 如果不做这一步，网站会报错 Internal Error。
 
 回到你刚才创建的 Worker (比如 my-nav) 的设置页面。
