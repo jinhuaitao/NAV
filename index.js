@@ -1,9 +1,9 @@
 /**
- * Cloudflare Worker Navigation Site v12.4 (Colorful Weather Edition)
+ * Cloudflare Worker Navigation Site v13.0 (R2 Storage Edition)
  * Optimization Log:
- * - [UI] Weather icons are now Colorful Images (Twemoji) instead of monochrome text.
- * - [UX] Retained interaction optimizations (Search/Zen mode).
- * - [System] Unified icon style with the site logo.
+ * - [System] Migrated storage backend from KV to Cloudflare R2.
+ * - [Config] REQUIRES R2 Bucket binding named 'NAV_R2'.
+ * - [Feature] Retained all v12.4 features (Colorful Weather, PWA Shortcuts).
  */
 
 // 🟢 配置区域：在这里更换你的网站图标链接
@@ -342,7 +342,7 @@ const HTML_TEMPLATE = (context) => `
     </main>
     
     <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v12.4</a>
+        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v13.0</a>
     </footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
@@ -539,14 +539,14 @@ const HTML_TEMPLATE = (context) => `
                     // Mapping WMO codes to Twemoji images (72x72 PNGs)
                     const base = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/";
                     // Default: Sun
-                    let icon = "2600.png"; let desc = "Sunny";
+                    let icon = "2600.png"; let desc = "晴";
                     
-                    if ([1, 2, 3].includes(code)) { icon = "26c5.png"; desc = "Partly Cloudy"; } // ⛅
-                    else if ([45, 48].includes(code)) { icon = "1f32b.png"; desc = "Fog"; } // 🌫️
-                    else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = "1f327.png"; desc = "Rain"; } // 🌧️
-                    else if ([71, 73, 75, 77, 85, 86].includes(code)) { icon = "2744.png"; desc = "Snow"; } // ❄️
-                    else if ([80, 81, 82].includes(code)) { icon = "1f326.png"; desc = "Showers"; } // 🌦️
-                    else if ([95, 96, 99].includes(code)) { icon = "26c8.png"; desc = "Thunderstorm"; } // ⛈️
+                    if ([1, 2, 3].includes(code)) { icon = "26c5.png"; desc = "多云"; } // ⛅
+                    else if ([45, 48].includes(code)) { icon = "1f32b.png"; desc = "雾"; } // 🌫️
+                    else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = "1f327.png"; desc = "小雨"; } // 🌧️
+                    else if ([71, 73, 75, 77, 85, 86].includes(code)) { icon = "2744.png"; desc = "雪"; } // ❄️
+                    else if ([80, 81, 82].includes(code)) { icon = "1f326.png"; desc = "阵雨"; } // 🌦️
+                    else if ([95, 96, 99].includes(code)) { icon = "26c8.png"; desc = "雷雨"; } // ⛈️
                     
                     return { url: base + icon, desc: desc };
                 },
@@ -689,7 +689,12 @@ export default {
                 return new Response(HTML_TEMPLATE({ coords }), { headers: { "Content-Type": "text/html;charset=UTF-8", "X-Frame-Options": "DENY" } });
             }
             
-            if (path === "/api/status") { const admin = await env.NAV_DB.get("admin_hash"); return new Response(JSON.stringify({ setup: !!admin }), { headers: cors }); }
+            // --- R2 Storage Handlers ---
+
+            if (path === "/api/status") { 
+                const adminObj = await env.NAV_R2.get("admin_hash");
+                return new Response(JSON.stringify({ setup: !!adminObj }), { headers: cors }); 
+            }
 
             if (path === "/api/meta") {
                 const targetUrl = url.searchParams.get("url"); if (!targetUrl) return new Response("Missing URL", { status: 400 });
@@ -707,8 +712,12 @@ export default {
             
             if (path === "/api/data") {
                 if (request.method === "GET") {
-                    let data = await env.NAV_DB.get("nav_data", { type: "json" }) || [];
-                    const settings = await env.NAV_DB.get("nav_settings", { type: "json" }) || {};
+                    const dataObj = await env.NAV_R2.get("nav_data");
+                    let data = dataObj ? await dataObj.json() : [];
+                    
+                    const settingsObj = await env.NAV_R2.get("nav_settings");
+                    const settings = settingsObj ? await settingsObj.json() : {};
+                    
                     const isAuth = await checkAuth(request, env);
                     if (!isAuth && Array.isArray(data)) { data = data.filter(g => !g.isPrivate).map(g => ({ ...g, items: g.items.filter(i => !i.isPrivate) })); }
                     return new Response(JSON.stringify({ data, settings }), { headers: cors });
@@ -716,22 +725,31 @@ export default {
                 if (request.method === "POST") {
                     if (!(await checkAuth(request, env))) return new Response("Unauthorized", { status: 401, headers: cors });
                     const body = await request.json();
-                    if (body.groups) await env.NAV_DB.put("nav_data", JSON.stringify(body.groups));
-                    if (body.settings) await env.NAV_DB.put("nav_settings", JSON.stringify(body.settings));
+                    if (body.groups) await env.NAV_R2.put("nav_data", JSON.stringify(body.groups));
+                    if (body.settings) await env.NAV_R2.put("nav_settings", JSON.stringify(body.settings));
                     return new Response("Saved", { headers: cors });
                 }
             }
             
             if (path === "/api/setup" && request.method === "POST") {
-                if (await env.NAV_DB.get("admin_hash")) return new Response("Forbidden", { status: 403, headers: cors });
-                const body = await request.json(); const hash = await hashText(body.password); const creds = { username: body.username, password: hash };
-                await env.NAV_DB.put("admin_hash", JSON.stringify(creds));
+                const existing = await env.NAV_R2.get("admin_hash");
+                if (existing) return new Response("Forbidden", { status: 403, headers: cors });
+                
+                const body = await request.json(); 
+                const hash = await hashText(body.password); 
+                const creds = { username: body.username, password: hash };
+                await env.NAV_R2.put("admin_hash", JSON.stringify(creds));
                 return new Response(JSON.stringify({ token: "Bearer " + btoa(JSON.stringify(creds)) }), { headers: cors });
             }
 
             if (path === "/api/login" && request.method === "POST") {
-                const body = await request.json(); const stored = JSON.parse(await env.NAV_DB.get("admin_hash") || "{}");
-                if (body.username === stored.username && (await hashText(body.password)) === stored.password) { return new Response(JSON.stringify({ token: "Bearer " + btoa(JSON.stringify(stored)) }), { headers: cors }); }
+                const body = await request.json(); 
+                const storedObj = await env.NAV_R2.get("admin_hash");
+                const stored = storedObj ? await storedObj.json() : {};
+                
+                if (body.username === stored.username && (await hashText(body.password)) === stored.password) { 
+                    return new Response(JSON.stringify({ token: "Bearer " + btoa(JSON.stringify(stored)) }), { headers: cors }); 
+                }
                 return new Response("Unauthorized", { status: 401, headers: cors });
             }
 
@@ -742,4 +760,10 @@ export default {
     }
 };
 
-async function checkAuth(req, env) { const h = req.headers.get("Authorization"); if (!h) return false; const stored = await env.NAV_DB.get("admin_hash"); return stored && h === "Bearer " + btoa(stored); }
+async function checkAuth(req, env) { 
+    const h = req.headers.get("Authorization"); 
+    if (!h) return false; 
+    const storedObj = await env.NAV_R2.get("admin_hash");
+    const stored = storedObj ? await storedObj.json() : null;
+    return stored && h === "Bearer " + btoa(JSON.stringify(stored)); 
+}
