@@ -1,9 +1,11 @@
 /**
- * Cloudflare Worker Navigation Site v13.6 (Perfectionist Edition)
+ * Cloudflare Worker Navigation Site v22.1 (Restore Fix Edition)
  * * Changelog:
- * - [Feature] "Smart Focus Sync": Auto-refreshes data when tab becomes active (syncs across devices/tabs).
- * - [UX] "Butter Smooth" Drag: Tuned Sortable.js animation timings for native-like feel.
- * - [System] Optimistic UI with robust Debounce (500ms) and State Rollback protection.
+ * - [FIX] "Reload Prompt": Fixed browser warning when restoring backup data.
+ * - [FIX] "Drag Twice" Bug: Solved by removing Sortable animation delay and forcing Deep Clone updates.
+ * - [FIX] "Snap Back": Uses immediate DOM-to-Data mapping on drop.
+ * - [Core] Zero-latency drag start (desktop) + safety delay (mobile).
+ * - [System] Aggressive Auto-Sanitizer checks for ID conflicts on every operation.
  */
 
 // 🟢 配置区域
@@ -17,7 +19,6 @@ const HTML_TEMPLATE = (context) => `
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>智能导航</title>
     <meta name="theme-color" content="#0f172a">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
@@ -35,7 +36,6 @@ const HTML_TEMPLATE = (context) => `
         * { -webkit-tap-highlight-color: transparent; }
         
         :root {
-            /* --- 🌑 Deep Space Theme --- */
             --bg-grad-start: #0f172a; --bg-grad-end: #020617;
             --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-accent: #818cf8;
             --glass-bg: rgba(15, 23, 42, 0.65); --glass-border: rgba(255, 255, 255, 0.08);
@@ -46,7 +46,6 @@ const HTML_TEMPLATE = (context) => `
         }
 
         .light-theme {
-            /* --- ☀️ Ceramic Air Theme --- */
             --bg-grad-start: #f8fafc; --bg-grad-end: #e2e8f0;
             --text-primary: #1e293b; --text-secondary: #64748b; --text-accent: #4f46e5;
             --glass-bg: rgba(255, 255, 255, 0.75); --glass-border: rgba(255, 255, 255, 0.6);
@@ -62,53 +61,40 @@ const HTML_TEMPLATE = (context) => `
             background-attachment: fixed; overflow-y: scroll; overscroll-behavior-y: none;
         }
 
-        .header-glass {
-            backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
-            border-bottom: 1px solid var(--glass-border);
-        }
-        
+        .header-glass { backdrop-filter: blur(25px); border-bottom: 1px solid var(--glass-border); }
+        .logo-box { background: linear-gradient(-45deg, #ff00cc, #333399, #6600ff, #00ccff, #00ff99, #ff00cc); background-size: 400% 400%; animation: rainbow-flow 10s ease infinite; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 15px rgba(99, 102, 241, 0.4); position: relative; overflow: hidden; }
         @keyframes rainbow-flow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .logo-box {
-            background: linear-gradient(-45deg, #ff00cc, #333399, #6600ff, #00ccff, #00ff99, #ff00cc);
-            background-size: 400% 400%; animation: rainbow-flow 10s ease infinite;
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 15px rgba(99, 102, 241, 0.4);
-            position: relative; overflow: hidden;
-        }
         .logo-box::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent); transform: rotate(45deg); }
-
         .glass-panel { background: var(--modal-bg); backdrop-filter: blur(40px); border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
 
-        .nav-card {
-            background: var(--card-bg); border: 1px solid var(--glass-border);
-            transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s, box-shadow 0.2s; /* Optimized for smoother drag */
-            position: relative; overflow: hidden; transform: translateZ(0); will-change: transform;
-        }
-        .nav-card:hover { transform: translateY(-3px); background: var(--card-hover); border-color: var(--text-accent); z-index: 10; }
+        .nav-card { background: var(--card-bg); border: 1px solid var(--glass-border); transition: transform 0.1s, background 0.2s; position: relative; overflow: hidden; transform: translateZ(0); }
+        .nav-card:hover { transform: translateY(-2px); background: var(--card-hover); border-color: var(--text-accent); z-index: 10; }
         .nav-card:active { transform: scale(0.98); }
-
-        .editing .nav-card { border-style: dashed; border-color: rgba(99, 102, 241, 0.4); animation: breathe 2s infinite; cursor: grab; }
+        
+        /* 🟢 INSTANT DRAG STYLES */
+        .editing .nav-card { cursor: grab; }
         .editing .nav-card:active { cursor: grabbing; }
-        @keyframes breathe { 0%, 100% { border-color: rgba(99, 102, 241, 0.2); } 50% { border-color: rgba(99, 102, 241, 0.6); } }
+        
+        /* Force Fallback Styles */
+        .sortable-fallback { opacity: 1 !important; background: var(--card-hover); box-shadow: 0 20px 50px rgba(0,0,0,0.6); transform: scale(1.02); z-index: 99999; border: 1px solid var(--text-accent); border-radius: 12px; cursor: grabbing !important; }
+        .sortable-ghost { opacity: 0.1; background: var(--text-accent); border-radius: 12px; }
+        .sortable-drag { opacity: 0 !important; }
 
         .search-input { background: rgba(15, 23, 42, 0.3); border: 1px solid var(--glass-border); color: var(--text-primary); transition: all 0.3s; backdrop-filter: blur(10px); }
         .search-input:focus { background: var(--card-bg); border-color: var(--text-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25); }
-
         .pill-tag { font-size: 11px; font-weight: 600; padding: 4px 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 99px; transition: all 0.2s; cursor: pointer; color: var(--text-secondary); }
         .pill-tag.active { background: var(--text-accent); color: white; border-color: transparent; }
-
-        .context-menu { background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px; position: fixed; z-index: 100; min-width: 160px; backdrop-filter: blur(30px); animation: menuPop 0.1s ease-out; }
+        .context-menu { background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px; position: fixed; z-index: 9999; min-width: 160px; backdrop-filter: blur(30px); animation: menuPop 0.1s ease-out; }
         @keyframes menuPop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .menu-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); }
         .menu-item:hover { background: var(--text-accent); color: white; }
         .menu-item.danger:hover { background: #ef4444; }
-
         .bg-layer { position: fixed; inset: 0; z-index: -10; background-size: cover; background-position: center; transition: opacity 0.5s; }
         video.bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -10; transition: opacity 0.5s; }
-        
         .zen-hidden { opacity: 0; pointer-events: none; transform: translateY(20px); transition: all 0.5s ease; }
         .link-icon { width: var(--icon-size); height: var(--icon-size); transition: transform 0.3s; object-fit: contain; }
         .nav-card:hover .link-icon { transform: scale(1.15) rotate(3deg); }
-        .group-content { transition: max-height 0.3s ease-out, opacity 0.2s; overflow: hidden; } /* Faster toggle */
+        .group-content { transition: max-height 0.3s ease-out, opacity 0.2s; overflow: hidden; }
         .memo-area { resize: none; outline: none; border: none; background: transparent; font-family: inherit; line-height: 1.6; }
         ::-webkit-scrollbar { width: 0px; }
     </style>
@@ -116,12 +102,8 @@ const HTML_TEMPLATE = (context) => `
 </head>
 <body x-data="app()" :class="{ 'light-theme': theme === 'light', 'editing': editMode }" @click="closeMenu()" @keydown.window="handleKeydown($event)" @contextmenu.prevent>
 
-    <template x-if="isVideoBg">
-        <video autoplay loop muted playsinline class="bg-video" :src="settings.customBg" :style="\`filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></video>
-    </template>
-    <template x-if="!isVideoBg">
-        <div class="bg-layer" :style="\`background-image: url('\${bgUrl}'); filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></div>
-    </template>
+    <template x-if="isVideoBg"><video autoplay loop muted playsinline class="bg-video" :src="settings.customBg" :style="\`filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></video></template>
+    <template x-if="!isVideoBg"><div class="bg-layer" :style="\`background-image: url('\${bgUrl}'); filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></div></template>
 
     <div x-show="zenMode" @click="zenMode = false" x-transition.opacity class="fixed inset-0 z-[5] cursor-zoom-out"></div>
     <div x-show="editMode" x-transition class="fixed top-0 left-0 w-full h-1 bg-indigo-500 z-[60] shadow-[0_0_15px_rgba(99,102,241,0.8)]"></div>
@@ -129,9 +111,7 @@ const HTML_TEMPLATE = (context) => `
     <nav class="sticky top-0 z-50 header-glass px-4 py-3 mb-8 transition-all duration-500" :style="\`background-color: rgba(var(--card-rgb), \${(settings.headerOpacity ?? 75) / 100})\`" :class="{ 'opacity-0 -translate-y-full': zenMode }">
         <div class="mx-auto flex justify-between items-center" :class="settings.layoutWidth === 'wide' ? 'max-w-[98%]' : 'max-w-7xl'">
             <div class="flex items-center gap-4">
-                <div class="logo-box w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ring-1 ring-white/10">
-                    <i class="fa-solid fa-atom text-xl"></i>
-                </div>
+                <div class="logo-box w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ring-1 ring-white/10"><i class="fa-solid fa-atom text-xl"></i></div>
                 <div class="hidden sm:block">
                     <div class="font-bold text-lg tracking-tight leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-primary)] to-[var(--text-secondary)]">欢迎光临</div>
                     <div class="text-sm font-medium tracking-wide flex items-center gap-3 opacity-90" style="color: var(--text-secondary)">
@@ -142,20 +122,12 @@ const HTML_TEMPLATE = (context) => `
                     </div>
                 </div>
             </div>
-
             <div class="flex items-center gap-3">
-                <div x-show="status.saving" x-transition.opacity class="flex items-center gap-2 text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20 cursor-default" title="正在同步到服务器...">
-                    <i class="fa-solid fa-rotate fa-spin text-xs"></i><span class="text-[10px] font-bold">同步中</span>
-                </div>
-                <div x-show="status.pending && !status.saving" x-transition.opacity class="flex items-center gap-2 text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20 cursor-default" title="等待操作停止后自动保存">
-                    <i class="fa-solid fa-cloud-arrow-up text-xs animate-pulse"></i><span class="text-[10px] font-bold">待保存</span>
-                </div>
-                
+                <div x-show="status.saving" class="flex items-center gap-2 text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20"><i class="fa-solid fa-rotate fa-spin text-xs"></i><span class="text-[10px] font-bold">同步中</span></div>
+                <div x-show="status.pending && !status.saving" class="flex items-center gap-2 text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20"><i class="fa-solid fa-cloud-arrow-up text-xs animate-pulse"></i><span class="text-[10px] font-bold">待保存</span></div>
                 <button @click="toggleTheme()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid transition-transform duration-500" :class="theme === 'dark' ? 'fa-moon' : 'fa-sun -rotate-90'"></i></button>
                 <button @click="toggleZen()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid fa-leaf"></i></button>
-
                 <template x-if="!isLoggedIn"><button @click="modals.login = true" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid fa-user-astronaut"></i></button></template>
-
                 <template x-if="isLoggedIn">
                     <div class="relative" x-data="{ open: false }">
                         <button @click.stop="open = !open" class="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center hover:scale-105 transition active:scale-95 ring-1 ring-white/20"><i class="fa-solid fa-bars"></i></button>
@@ -194,20 +166,20 @@ const HTML_TEMPLATE = (context) => `
                     <div class="flex items-center justify-between mb-3 px-1 group/header select-none">
                         <div class="flex items-center gap-3 cursor-pointer opacity-80 hover:opacity-100 transition" @click="collapsed = !collapsed">
                             <i class="fa-solid fa-chevron-down text-xs transition-transform duration-300" :class="collapsed ? '-rotate-90' : ''" style="color: var(--text-secondary)"></i>
-                            <h2 class="text-lg font-bold tracking-tight flex items-center gap-2" style="color: var(--text-primary)">
-                                <span x-text="group.name"></span>
-                                <i x-show="group.isPrivate" class="fa-solid fa-lock text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full"></i>
-                            </h2>
+                            <h2 class="text-lg font-bold tracking-tight flex items-center gap-2" style="color: var(--text-primary)"><span x-text="group.name"></span><i x-show="group.isPrivate" class="fa-solid fa-lock text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full"></i></h2>
                             <template x-if="editMode && !search"><div class="cursor-move handle-group p-1.5 bg-white/10 rounded text-xs transition text-indigo-400" @click.stop><i class="fa-solid fa-grip-vertical"></i></div></template>
                         </div>
                         <template x-if="editMode"><button @click="editGroup(group)" class="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 transition" style="color: var(--text-secondary)"><i class="fa-solid fa-pen text-xs"></i></button></template>
                     </div>
 
                     <div class="group-content" :style="collapsed ? 'max-height: 0px; opacity: 0' : 'max-height: 3000px; opacity: 1'">
-                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sortable-items min-h-[10px]" :data-group-id="group.id" x-init="initSortable($el)">
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sortable-items min-h-[10px]" 
+                             :data-group-id="group.id"
+                             :key="groupRenderKey"
+                             x-init="initSortable($el)">
+                            
                             <template x-for="link in group.items" :key="link.id">
                                 <div class="nav-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer select-none h-full group relative" :data-id="link.id" @click="!editMode && openLink(link.url)" @contextmenu.prevent.stop="showContextMenu($event, link, group.id)">
-                                    <div x-show="editMode" class="absolute inset-0 z-20 cursor-move"></div>
                                     <img :src="link.iconUrl || getFavicon(link.url)" class="link-icon rounded-lg bg-gray-500/5 p-0.5" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=Lk&background=random&color=fff&rounded=true&size=32'">
                                     <div class="min-w-0 flex-1 relative">
                                         <div class="font-semibold text-[13px] truncate leading-tight mb-0.5 flex items-center gap-1.5" style="color: var(--text-primary)"><span x-text="link.title"></span><i x-show="link.isPrivate" class="fa-solid fa-lock text-[8px] text-amber-500"></i></div>
@@ -227,7 +199,7 @@ const HTML_TEMPLATE = (context) => `
         </div>
     </main>
     
-    <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }"><a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v13.6</a></footer>
+    <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }"><a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v22.0</a></footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
         <div class="menu-item" @click="menuEdit()"><i class="fa-solid fa-pen w-4 opacity-60"></i> 编辑</div>
@@ -349,6 +321,7 @@ const HTML_TEMPLATE = (context) => `
                 sortableInstances: [], 
                 groupSortableInstance: null, 
                 saveDebounceTimer: null, 
+                groupRenderKey: Date.now(), 
 
                 async init() {
                     setInterval(() => { const now = new Date(); this.timeStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }, 1000);
@@ -357,15 +330,12 @@ const HTML_TEMPLATE = (context) => `
                     if(this.token) await this.verifyToken();
                     this.updateCSSVars(); 
                     
-                    // 🟢 Feature: Auto-Sync on Tab Focus (Solves multi-device/tab issues)
-                    window.addEventListener('focus', () => {
-                        if(this.isLoggedIn && !this.status.pending && !this.status.saving) {
-                            console.log('Tab focused, checking for updates...');
-                            this.syncData('GET'); 
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible' && this.isLoggedIn && !this.status.pending && !this.status.saving) {
+                            this.syncData('GET');
                         }
                     });
 
-                    // 🟢 Safety: Prevent closing tab while saving
                     window.addEventListener('beforeunload', (e) => {
                         if(this.status.pending || this.status.saving) {
                             e.preventDefault(); e.returnValue = 'Data pending save. Are you sure?';
@@ -377,6 +347,23 @@ const HTML_TEMPLATE = (context) => `
                     if(params.get('action') === 'memo') setTimeout(() => { if(this.isLoggedIn) this.modals.memo = true; else this.showToast('请先登录使用便签', 'error'); }, 500);
 
                     this.$nextTick(() => { this.initGroupSortable(); this.updateSortableState(); this.status.loading = false; });
+                },
+
+                // 🟢 AUTO-SANITIZER: Fixes legacy corrupt data automatically
+                sanitizeData(groups) {
+                    let changed = false;
+                    const idSet = new Set();
+                    groups.forEach(g => {
+                        if(!g.id) { g.id = 'g_'+Math.random().toString(36).substr(2,9); changed=true; }
+                        g.items.forEach(i => {
+                            if(!i.id || idSet.has(i.id)) {
+                                i.id = 'link_'+Math.random().toString(36).substr(2,9);
+                                changed = true;
+                            }
+                            idSet.add(i.id);
+                        });
+                    });
+                    if(changed) { console.log('Data sanitized (fixed IDs)'); this.saveAll(); }
                 },
 
                 handleKeydown(e) {
@@ -455,14 +442,14 @@ const HTML_TEMPLATE = (context) => `
                     const el = document.getElementById('groups-container'); if(!el) return;
                     if(this.groupSortableInstance) this.groupSortableInstance.destroy();
                     this.groupSortableInstance = new Sortable(el, { 
-                        animation: 200, handle: '.handle-group', draggable: '.group-container',
-                        disabled: !this.editMode, ghostClass: 'opacity-50', delay: 50,
+                        animation: 150, handle: '.handle-group', draggable: '.group-container',
+                        disabled: !this.editMode, ghostClass: 'opacity-50',
+                        forceFallback: true, fallbackOnBody: true,
                         onEnd: (evt) => { 
                             if (evt.oldIndex === evt.newIndex) return;
-                            // 🟢 FIX: Remove DOM element to force Alpine re-render
-                            if(evt.item && evt.item.parentNode) evt.item.parentNode.removeChild(evt.item);
-                            const item = this.groups.splice(evt.oldIndex, 1)[0]; 
-                            this.groups.splice(evt.newIndex, 0, item); 
+                            const newOrderIds = Array.from(evt.to.children).map(el => el.dataset.id);
+                            this.groups.sort((a, b) => newOrderIds.indexOf(String(a.id)) - newOrderIds.indexOf(String(b.id)));
+                            this.groupRenderKey = Date.now();
                             this.saveAll(); 
                         } 
                     }); 
@@ -471,24 +458,47 @@ const HTML_TEMPLATE = (context) => `
                 initSortable(el) { 
                     if(el._sortable) return;
                     const inst = new Sortable(el, { 
-                        group: 'shared-links', animation: 150, delay: 100, delayOnTouchOnly: true, 
-                        disabled: !this.editMode, ghostClass: 'opacity-40', dragClass: 'opacity-100', 
+                        group: 'shared-links', animation: 200, delay: 100, delayOnTouchOnly: true, 
+                        disabled: !this.editMode, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+                        forceFallback: true, // 🟢 CORE FIX: Software Rendering (No Ghosting/Lag)
+                        fallbackOnBody: true,
+                        swapThreshold: 0.5,
                         onEnd: (evt) => { 
                             if (!evt.to || !evt.from) return; 
-                            const fromG = this.groups.find(g => String(g.id) === evt.from.dataset.groupId); 
-                            const toG = this.groups.find(g => String(g.id) === evt.to.dataset.groupId); 
-                            if (fromG && toG) { 
-                                // 🟢 FIX: Remove DOM element to force Alpine re-render
-                                if(evt.item && evt.item.parentNode) evt.item.parentNode.removeChild(evt.item);
-                                if (evt.oldIndex >= 0 && evt.oldIndex < fromG.items.length) {
-                                    const item = fromG.items[evt.oldIndex];
-                                    if(item) {
-                                        fromG.items.splice(evt.oldIndex, 1);
-                                        toG.items.splice(evt.newIndex, 0, item);
-                                        this.saveAll();
-                                    }
+                            const fromGroupId = evt.from.dataset.groupId;
+                            const toGroupId = evt.to.dataset.groupId;
+                            const fromGroup = this.groups.find(g => String(g.id) === fromGroupId);
+                            const toGroup = this.groups.find(g => String(g.id) === toGroupId);
+                            
+                            if (fromGroup && toGroup) {
+                                // 🟢 VISUAL SNAPSHOT SYNC (Visual Truth)
+                                const newOrderIds = Array.from(evt.to.children).map(el => el.dataset.id).filter(id => id);
+                                
+                                // Logic: Remove from source first
+                                const movedItemId = evt.item.dataset.id;
+                                const movedItem = fromGroup.items.find(i => String(i.id) === movedItemId);
+                                
+                                if(movedItem) {
+                                    fromGroup.items = fromGroup.items.filter(i => String(i.id) !== movedItemId);
+                                    
+                                    // Temp add to target to ensuring it exists in the pool
+                                    if(fromGroup !== toGroup) toGroup.items.push(movedItem);
+                                    else fromGroup.items.push(movedItem);
+                                    
+                                    // Reconstruct target array based on DOM order
+                                    const itemMap = new Map(toGroup.items.map(i => [String(i.id), i]));
+                                    const sortedItems = [];
+                                    newOrderIds.forEach(id => { if(itemMap.has(id)) sortedItems.push(itemMap.get(id)); });
+                                    
+                                    // Safety: catch any orphans
+                                    toGroup.items.forEach(i => { if(!sortedItems.find(si => String(si.id) === String(i.id))) sortedItems.push(i); });
+
+                                    toGroup.items = sortedItems;
+                                    
+                                    this.groupRenderKey = Date.now();
+                                    this.saveAll();
                                 }
-                            } 
+                            }
                         } 
                     });
                     el._sortable = inst;
@@ -503,7 +513,48 @@ const HTML_TEMPLATE = (context) => `
 
                 openLinkModal(groupId = null) { const defaultGroup = groupId || (this.groups.length > 0 ? this.groups[0].id : null); if(!defaultGroup && !groupId) return this.showToast('请先创建分组', 'error'); this.linkForm = { id: null, groupId: defaultGroup, title: '', url: '', desc: '', iconUrl: '', isPrivate: false }; this.modals.link = true; },
                 async fetchMetadata() { if(!this.linkForm.url || this.linkForm.title || this.status.fetchingMeta) return; if (!this.linkForm.url.startsWith('http')) this.linkForm.url = 'https://' + this.linkForm.url; this.status.fetchingMeta = true; try { const res = await fetch('/api/meta?url=' + encodeURIComponent(this.linkForm.url)); if(res.ok) { const data = await res.json(); if(data.title) this.linkForm.title = data.title; if(data.description && !this.linkForm.desc) this.linkForm.desc = data.description.substring(0, 50); if(!this.linkForm.iconUrl) this.linkForm.iconUrl = data.icon || \`https://icons.duckduckgo.com/ip3/\${new URL(this.linkForm.url).hostname}.ico\`; } } catch(e) {} this.status.fetchingMeta = false; },
-                saveLink() { if(!this.linkForm.url) return; if(!this.linkForm.url.startsWith('http')) this.linkForm.url = 'https://' + this.linkForm.url; const oldIdStr = this.linkForm.id ? String(this.linkForm.id) : null; if(oldIdStr) this.groups.forEach(g => g.items = g.items.filter(i => String(i.id) !== oldIdStr)); const g = this.groups.find(x => String(x.id) === String(this.linkForm.groupId)); if(g) { g.items.push({ id: oldIdStr || Date.now().toString(), title: this.linkForm.title || new URL(this.linkForm.url).hostname, url: this.linkForm.url, desc: this.linkForm.desc, iconUrl: this.linkForm.iconUrl, isPrivate: this.linkForm.isPrivate }); this.saveAll(); this.modals.link = false; } },
+                
+                // 🟢 FIXED: In-Place Edit
+                saveLink() { 
+                    if(!this.linkForm.url) return;
+                    if(!this.linkForm.url.startsWith('http')) this.linkForm.url = 'https://' + this.linkForm.url;
+                    
+                    const newItem = {
+                        id: this.linkForm.id || Date.now().toString(),
+                        title: this.linkForm.title || new URL(this.linkForm.url).hostname,
+                        url: this.linkForm.url,
+                        desc: this.linkForm.desc,
+                        iconUrl: this.linkForm.iconUrl,
+                        isPrivate: this.linkForm.isPrivate
+                    };
+
+                    if (this.linkForm.id) {
+                        let processed = false;
+                        for (let g of this.groups) {
+                            const idx = g.items.findIndex(i => String(i.id) === String(this.linkForm.id));
+                            if (idx !== -1) {
+                                if (String(g.id) === String(this.linkForm.groupId)) {
+                                    g.items[idx] = newItem; 
+                                    processed = true;
+                                } else {
+                                    g.items.splice(idx, 1);
+                                }
+                                break;
+                            }
+                        }
+                        if (!processed) {
+                            const targetGroup = this.groups.find(g => String(g.id) === String(this.linkForm.groupId));
+                            if (targetGroup) targetGroup.items.push(newItem);
+                        }
+                    } else {
+                        const targetGroup = this.groups.find(g => String(g.id) === String(this.linkForm.groupId));
+                        if (targetGroup) targetGroup.items.push(newItem);
+                    }
+
+                    this.saveAll();
+                    this.modals.link = false;
+                },
+
                 openGroupModal() { this.groupForm = { id: null, name: '', isPrivate: false }; this.modals.group = true; }, editGroup(g) { this.groupForm = { ...g }; this.modals.group = true; },
                 saveGroup() { 
                     if(!this.groupForm.name) return; 
@@ -518,18 +569,17 @@ const HTML_TEMPLATE = (context) => `
                 },
                 deleteGroup() { if(!confirm('删除此分组及所有内容?')) return; this.groups = this.groups.filter(x => String(x.id) !== String(this.groupForm.id)); this.saveAll(); this.modals.group = false; },
 
-                async syncData(method, payload = null) { const headers = { 'Content-Type': 'application/json' }; if(this.token) headers['Authorization'] = this.token; if(method === 'POST') this.status.saving = true; try { const res = await fetch('/api/data', { method, headers, body: payload ? JSON.stringify(payload) : null }); if(res.status === 401) { this.logout(); return; } if(method === 'GET') { const data = await res.json(); this.groups = (Array.isArray(data.data) && data.data.length > 0 && !data.data[0].items) ? [{ id: 'default', name: 'Home', items: data.data }] : (data.data || []); if(data.settings) { this.settings = { ...this.settings, ...data.settings }; this.updateCSSVars(); } } else { this.status.pending = false; } } catch(e) { if(method === 'POST') this.status.pending = true; } finally { this.status.saving = false; } },
+                async syncData(method, payload = null) { const headers = { 'Content-Type': 'application/json' }; if(this.token) headers['Authorization'] = this.token; if(method === 'POST') this.status.saving = true; try { const res = await fetch('/api/data', { method, headers, body: payload ? JSON.stringify(payload) : null }); if(res.status === 401) { this.logout(); return; } if(method === 'GET') { const data = await res.json(); this.groups = (Array.isArray(data.data) && data.data.length > 0 && !data.data[0].items) ? [{ id: 'default', name: 'Home', items: data.data }] : (data.data || []); if(data.settings) { this.settings = { ...this.settings, ...data.settings }; this.updateCSSVars(); } this.sanitizeData(this.groups); } else { this.status.pending = false; } } catch(e) { if(method === 'POST') this.status.pending = true; } finally { this.status.saving = false; } },
                 
-                // 🟢 Debounced Save: The Key to Sync Perfection
                 saveAll() { 
                     if(this.isLoggedIn) { 
                         if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
-                        this.status.pending = true; // Mark UI as "Waiting to save"
+                        this.status.pending = true; 
                         this.saveDebounceTimer = setTimeout(async () => {
                             await this.syncData('POST', { groups: this.groups, settings: this.settings }); 
                             this.status.pending = false;
                             this.saveDebounceTimer = null;
-                        }, 500); // 500ms debounce
+                        }, 500); 
                     } else if(this.settings.engine === 'custom') { 
                         this.showToast('请先登录', 'error'); 
                     }
@@ -543,7 +593,34 @@ const HTML_TEMPLATE = (context) => `
                 doSearch() { if(!this.search) return; if(this.search.includes('.') && !this.search.includes(' ')) { window.open(this.search.startsWith('http') ? this.search : 'https://' + this.search, '_blank'); } else { let url = ''; if(this.settings.engine === 'custom' && this.settings.customSearchUrl) { url = this.settings.customSearchUrl; } else { const engine = this.engines.find(e => e.val === this.settings.engine) || this.engines[0]; url = engine.url; } window.open(url + encodeURIComponent(this.search), '_blank'); } },
                 getFavicon(url) { try { return \`https://icons.duckduckgo.com/ip3/\${new URL(url).hostname}.ico\`; } catch { return ''; } }, getDomain(url) { try { return new URL(url).hostname; } catch { return ''; } }, openLink(url) { window.open(url, '_blank'); }, showToast(msg, type='success') { this.toast.msg = msg; this.toast.type = type; this.toast.show = true; setTimeout(() => this.toast.show = false, 2500); },
                 exportData() { const blob = new Blob([JSON.stringify({ data: this.groups, settings: this.settings })], {type: "application/json"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "nexus_backup.json"; a.click(); },
-                importData(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (ev) => { try { const json = JSON.parse(ev.target.result); if(json.data) this.groups = json.data; if(json.settings) this.settings = json.settings; await this.saveAll(); this.showToast('恢复成功'); setTimeout(() => location.reload(), 1000); } catch { this.showToast('文件损坏', 'error'); } }; reader.readAsText(file); },
+                
+                // 🟢 FIXED: Prevent browser "Reload site?" prompt by clearing saving status
+                importData(e) { 
+                    const file = e.target.files[0]; 
+                    if (!file) return; 
+                    const reader = new FileReader(); 
+                    reader.onload = async (ev) => { 
+                        try { 
+                            const json = JSON.parse(ev.target.result); 
+                            if(json.data) this.groups = json.data; 
+                            if(json.settings) this.settings = json.settings; 
+                            
+                            await this.saveAll(); 
+                            this.showToast('恢复成功'); 
+                            
+                            setTimeout(() => { 
+                                // FORCE RESET STATUS
+                                this.status.pending = false; 
+                                this.status.saving = false; 
+                                location.reload(); 
+                            }, 1000); 
+                        } catch { 
+                            this.showToast('文件损坏', 'error'); 
+                        } 
+                    }; 
+                    reader.readAsText(file); 
+                },
+                
                 importBookmarks(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (ev) => { const html = ev.target.result; const parser = new DOMParser(); const doc = parser.parseFromString(html, "text/html"); const links = Array.from(doc.querySelectorAll('a')); if(links.length === 0) return this.showToast('未找到书签', 'error'); const newGroup = { id: Date.now().toString(), name: 'Imported', isPrivate: false, items: links.map(a => ({ id: Math.random().toString(36).substr(2, 9), title: a.textContent, url: a.href, iconUrl: a.getAttribute('icon'), isPrivate: false })) }; this.groups.push(newGroup); await this.saveAll(); this.showToast(\`导入 \${links.length} 个书签\`); }; reader.readAsText(file); }
             }
         }
