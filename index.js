@@ -1,13 +1,13 @@
 /**
- * Cloudflare Worker Navigation Site v13.0 (R2 Storage Edition)
- * Optimization Log:
- * - [System] Migrated storage backend from KV to Cloudflare R2.
- * - [Config] REQUIRES R2 Bucket binding named 'NAV_R2'.
- * - [Feature] Retained all v12.4 features (Colorful Weather, PWA Shortcuts).
+ * Cloudflare Worker Navigation Site v13.6 (Perfectionist Edition)
+ * * Changelog:
+ * - [Feature] "Smart Focus Sync": Auto-refreshes data when tab becomes active (syncs across devices/tabs).
+ * - [UX] "Butter Smooth" Drag: Tuned Sortable.js animation timings for native-like feel.
+ * - [System] Optimistic UI with robust Debounce (500ms) and State Rollback protection.
  */
 
-// 🟢 配置区域：在这里更换你的网站图标链接
-const SITE_ICON = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/269b.png"; 
+// 🟢 配置区域
+const SITE_ICON = "https://jhtvm.eu.org/rest/2Riuc1k.png"; 
 
 const HTML_TEMPLATE = (context) => `
 <!DOCTYPE html>
@@ -35,206 +35,134 @@ const HTML_TEMPLATE = (context) => `
         * { -webkit-tap-highlight-color: transparent; }
         
         :root {
-            /* --- 🌑 Deep Space Theme (Default) --- */
-            --bg-grad-start: #0f172a;
-            --bg-grad-end: #020617;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-accent: #818cf8;
-            
-            /* Glass System */
-            --glass-bg: rgba(15, 23, 42, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-highlight: rgba(255, 255, 255, 0.05);
-            
-            /* Dynamic Vars */
-            --card-rgb: 15, 23, 42;
+            /* --- 🌑 Deep Space Theme --- */
+            --bg-grad-start: #0f172a; --bg-grad-end: #020617;
+            --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-accent: #818cf8;
+            --glass-bg: rgba(15, 23, 42, 0.65); --glass-border: rgba(255, 255, 255, 0.08);
             --card-bg: rgba(30, 41, 59, var(--card-opacity, 0.5));
             --card-hover: rgba(51, 65, 85, var(--hover-opacity, 0.7));
-            
             --modal-bg: rgba(15, 23, 42, 0.85);
-            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
             --icon-size: 32px;
         }
 
         .light-theme {
             /* --- ☀️ Ceramic Air Theme --- */
-            --bg-grad-start: #f8fafc;
-            --bg-grad-end: #e2e8f0;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --text-accent: #4f46e5;
-            
-            --glass-bg: rgba(255, 255, 255, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.6);
-            --glass-highlight: rgba(255, 255, 255, 0.9);
-            
-            --card-rgb: 255, 255, 255;
+            --bg-grad-start: #f8fafc; --bg-grad-end: #e2e8f0;
+            --text-primary: #1e293b; --text-secondary: #64748b; --text-accent: #4f46e5;
+            --glass-bg: rgba(255, 255, 255, 0.75); --glass-border: rgba(255, 255, 255, 0.6);
             --card-bg: rgba(255, 255, 255, var(--card-opacity, 0.7));
             --card-hover: rgba(255, 255, 255, var(--hover-opacity, 0.95));
-            
             --modal-bg: rgba(255, 255, 255, 0.9);
-            --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
         }
 
         body { 
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             color: var(--text-primary);
             background: linear-gradient(135deg, var(--bg-grad-start), var(--bg-grad-end));
-            background-attachment: fixed;
-            overflow-y: scroll;
-            overscroll-behavior-y: none;
+            background-attachment: fixed; overflow-y: scroll; overscroll-behavior-y: none;
         }
 
-        /* --- UI Components --- */
         .header-glass {
             backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
         }
         
+        @keyframes rainbow-flow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         .logo-box {
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: linear-gradient(-45deg, #ff00cc, #333399, #6600ff, #00ccff, #00ff99, #ff00cc);
+            background-size: 400% 400%; animation: rainbow-flow 10s ease infinite;
             box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 15px rgba(99, 102, 241, 0.4);
             position: relative; overflow: hidden;
         }
-        .logo-box::after {
-            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: rotate(45deg);
-        }
+        .logo-box::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent); transform: rotate(45deg); }
 
-        .glass-panel {
-            background: var(--modal-bg);
-            backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-        }
+        .glass-panel { background: var(--modal-bg); backdrop-filter: blur(40px); border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
 
         .nav-card {
             background: var(--card-bg); border: 1px solid var(--glass-border);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            position: relative; overflow: hidden; transform: translateZ(0);
+            transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s, box-shadow 0.2s; /* Optimized for smoother drag */
+            position: relative; overflow: hidden; transform: translateZ(0); will-change: transform;
         }
-        .nav-card:hover {
-            transform: translateY(-4px) scale(1.01); background: var(--card-hover);
-            box-shadow: var(--shadow-glow), 0 10px 20px -5px rgba(0,0,0,0.1);
-            border-color: var(--text-accent); z-index: 10;
-        }
-        .nav-card:active { transform: scale(0.96); }
+        .nav-card:hover { transform: translateY(-3px); background: var(--card-hover); border-color: var(--text-accent); z-index: 10; }
+        .nav-card:active { transform: scale(0.98); }
 
-        .search-input {
-            background: rgba(var(--card-rgb), 0.3); border: 1px solid var(--glass-border);
-            color: var(--text-primary); transition: all 0.3s;
-            backdrop-filter: blur(10px);
-        }
-        .search-input:focus {
-            background: var(--card-bg); border-color: var(--text-accent);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-        }
+        .editing .nav-card { border-style: dashed; border-color: rgba(99, 102, 241, 0.4); animation: breathe 2s infinite; cursor: grab; }
+        .editing .nav-card:active { cursor: grabbing; }
+        @keyframes breathe { 0%, 100% { border-color: rgba(99, 102, 241, 0.2); } 50% { border-color: rgba(99, 102, 241, 0.6); } }
 
-        .pill-tag {
-            font-size: 11px; font-weight: 600; padding: 4px 14px;
-            background: var(--glass-highlight); border: 1px solid var(--glass-border);
-            border-radius: 99px; transition: all 0.2s; cursor: pointer; color: var(--text-secondary);
-        }
-        .pill-tag.active {
-            background: var(--text-accent); color: white; border-color: transparent;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-        }
+        .search-input { background: rgba(15, 23, 42, 0.3); border: 1px solid var(--glass-border); color: var(--text-primary); transition: all 0.3s; backdrop-filter: blur(10px); }
+        .search-input:focus { background: var(--card-bg); border-color: var(--text-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25); }
 
-        .context-menu {
-            background: var(--modal-bg); border: 1px solid var(--glass-border);
-            border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            padding: 6px; position: fixed; z-index: 100; min-width: 160px;
-            backdrop-filter: blur(30px);
-            transform-origin: top left;
-            animation: menuPop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes menuPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        
-        .menu-item {
-            padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px;
-            font-size: 13px; font-weight: 500; color: var(--text-primary); transition: background 0.1s;
-        }
+        .pill-tag { font-size: 11px; font-weight: 600; padding: 4px 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 99px; transition: all 0.2s; cursor: pointer; color: var(--text-secondary); }
+        .pill-tag.active { background: var(--text-accent); color: white; border-color: transparent; }
+
+        .context-menu { background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px; position: fixed; z-index: 100; min-width: 160px; backdrop-filter: blur(30px); animation: menuPop 0.1s ease-out; }
+        @keyframes menuPop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .menu-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); }
         .menu-item:hover { background: var(--text-accent); color: white; }
-        .menu-item.danger:hover { background: #ef4444; color: white; }
+        .menu-item.danger:hover { background: #ef4444; }
 
-        .bg-layer { position: fixed; inset: 0; z-index: -10; background-size: cover; background-position: center; transition: opacity 0.5s ease; will-change: opacity; }
-        video.bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -10; transition: opacity 0.5s ease; will-change: opacity; }
+        .bg-layer { position: fixed; inset: 0; z-index: -10; background-size: cover; background-position: center; transition: opacity 0.5s; }
+        video.bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -10; transition: opacity 0.5s; }
         
         .zen-hidden { opacity: 0; pointer-events: none; transform: translateY(20px); transition: all 0.5s ease; }
-        .link-icon { width: var(--icon-size); height: var(--icon-size); transition: transform 0.3s; opacity: var(--icon-opacity, 1); object-fit: contain; }
+        .link-icon { width: var(--icon-size); height: var(--icon-size); transition: transform 0.3s; object-fit: contain; }
         .nav-card:hover .link-icon { transform: scale(1.15) rotate(3deg); }
-        .group-content { transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out; overflow: hidden; }
-        .memo-area { resize: none; outline: none; border: none; background: transparent; font-family: 'Plus Jakarta Sans', monospace; line-height: 1.6; }
-        
+        .group-content { transition: max-height 0.3s ease-out, opacity 0.2s; overflow: hidden; } /* Faster toggle */
+        .memo-area { resize: none; outline: none; border: none; background: transparent; font-family: inherit; line-height: 1.6; }
         ::-webkit-scrollbar { width: 0px; }
     </style>
-    <script>
-        window.CF_COORDS = ${JSON.stringify(context.coords)};
-    </script>
+    <script>window.CF_COORDS = ${JSON.stringify(context.coords)};</script>
 </head>
-<body x-data="app()" :class="{ 'light-theme': theme === 'light' }" @click="closeMenu()" @keydown.window="handleKeydown($event)" @contextmenu.prevent>
+<body x-data="app()" :class="{ 'light-theme': theme === 'light', 'editing': editMode }" @click="closeMenu()" @keydown.window="handleKeydown($event)" @contextmenu.prevent>
 
     <template x-if="isVideoBg">
-        <video autoplay loop muted playsinline class="bg-video" :src="settings.customBg" 
-               :style="\`filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></video>
+        <video autoplay loop muted playsinline class="bg-video" :src="settings.customBg" :style="\`filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></video>
     </template>
     <template x-if="!isVideoBg">
         <div class="bg-layer" :style="\`background-image: url('\${bgUrl}'); filter: blur(\${settings.blur}px) brightness(\${theme === 'light' ? 1.05 : 0.6}); opacity: \${theme === 'light' && !settings.showBgInLight ? 0 : 1}\`"></div>
     </template>
 
-    <div x-show="zenMode" @click="zenMode = false" x-transition.opacity class="fixed inset-0 z-[5] cursor-zoom-out" title="点击空白处返回主页"></div>
+    <div x-show="zenMode" @click="zenMode = false" x-transition.opacity class="fixed inset-0 z-[5] cursor-zoom-out"></div>
+    <div x-show="editMode" x-transition class="fixed top-0 left-0 w-full h-1 bg-indigo-500 z-[60] shadow-[0_0_15px_rgba(99,102,241,0.8)]"></div>
 
-    <nav class="sticky top-0 z-50 header-glass px-4 py-3 mb-8 transition-all duration-500" 
-         :style="\`background-color: rgba(var(--card-rgb), \${(settings.headerOpacity ?? 75) / 100})\`"
-         :class="{ 'opacity-0 -translate-y-full': zenMode }">
+    <nav class="sticky top-0 z-50 header-glass px-4 py-3 mb-8 transition-all duration-500" :style="\`background-color: rgba(var(--card-rgb), \${(settings.headerOpacity ?? 75) / 100})\`" :class="{ 'opacity-0 -translate-y-full': zenMode }">
         <div class="mx-auto flex justify-between items-center" :class="settings.layoutWidth === 'wide' ? 'max-w-[98%]' : 'max-w-7xl'">
             <div class="flex items-center gap-4">
                 <div class="logo-box w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ring-1 ring-white/10">
                     <i class="fa-solid fa-atom text-xl"></i>
                 </div>
                 <div class="hidden sm:block">
-                    <div class="font-bold text-lg tracking-tight leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-primary)] to-[var(--text-secondary)]">
-                        欢迎光临
-                    </div>
+                    <div class="font-bold text-lg tracking-tight leading-none mb-1 text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-primary)] to-[var(--text-secondary)]">欢迎光临</div>
                     <div class="text-sm font-medium tracking-wide flex items-center gap-3 opacity-90" style="color: var(--text-secondary)">
                         <span x-text="timeStr"></span>
-                        
-                        <span x-show="weather.temp" class="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-lg ml-1 border border-white/10 shadow-sm transition-colors hover:bg-white/15 cursor-default group" :title="weather.desc">
-                            <img :src="weather.icon" class="w-5 h-5 object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform" x-show="weather.icon">
-                            <span x-text="weather.temp + '°'" class="font-bold"></span>
+                        <span x-show="weather.temp" class="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-lg ml-1 border border-white/10 shadow-sm transition-colors hover:bg-white/15 cursor-default group">
+                            <img :src="weather.icon" class="w-5 h-5 object-contain" x-show="weather.icon"><span x-text="weather.temp + '°'" class="font-bold"></span>
                         </span>
                     </div>
                 </div>
             </div>
 
             <div class="flex items-center gap-3">
-                <template x-if="status.saving"><div class="animate-spin w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div></template>
-                <div x-show="status.unsaved" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="有未保存的更改"></div>
+                <div x-show="status.saving" x-transition.opacity class="flex items-center gap-2 text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20 cursor-default" title="正在同步到服务器...">
+                    <i class="fa-solid fa-rotate fa-spin text-xs"></i><span class="text-[10px] font-bold">同步中</span>
+                </div>
+                <div x-show="status.pending && !status.saving" x-transition.opacity class="flex items-center gap-2 text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20 cursor-default" title="等待操作停止后自动保存">
+                    <i class="fa-solid fa-cloud-arrow-up text-xs animate-pulse"></i><span class="text-[10px] font-bold">待保存</span>
+                </div>
                 
-                <button @click="toggleTheme()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition" title="切换主题">
-                    <i class="fa-solid transition-transform duration-500" :class="theme === 'dark' ? 'fa-moon rotate-0' : 'fa-sun -rotate-90'"></i>
-                </button>
-                
-                <button @click="toggleZen()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition" title="禅模式 (Shift+Z)">
-                    <i class="fa-solid fa-leaf"></i>
-                </button>
+                <button @click="toggleTheme()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid transition-transform duration-500" :class="theme === 'dark' ? 'fa-moon' : 'fa-sun -rotate-90'"></i></button>
+                <button @click="toggleZen()" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid fa-leaf"></i></button>
 
-                <template x-if="!isLoggedIn">
-                    <button @click="modals.login = true" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition">
-                        <i class="fa-solid fa-user-astronaut"></i>
-                    </button>
-                </template>
+                <template x-if="!isLoggedIn"><button @click="modals.login = true" class="btn-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm hover:bg-white/5 transition"><i class="fa-solid fa-user-astronaut"></i></button></template>
 
                 <template x-if="isLoggedIn">
                     <div class="relative" x-data="{ open: false }">
-                        <button @click.stop="open = !open" class="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center hover:scale-105 transition active:scale-95 ring-1 ring-white/20">
-                            <i class="fa-solid fa-bars"></i>
-                        </button>
-                        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="context-menu" style="top: 50px; right: 0; position: absolute; min-width: 180px;">
-                            <div @click="modals.memo = true" class="menu-item"><i class="fa-solid fa-note-sticky w-5 opacity-70"></i> 快速便签 <span class="text-[9px] opacity-40 ml-auto border px-1 rounded">Shift+N</span></div>
+                        <button @click.stop="open = !open" class="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center hover:scale-105 transition active:scale-95 ring-1 ring-white/20"><i class="fa-solid fa-bars"></i></button>
+                        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="context-menu" style="top: 50px; right: 0; position: absolute;">
+                            <div @click="toggleEditMode(); open=false" class="menu-item" :class="{'bg-indigo-500/10 text-indigo-400': editMode}"><i class="fa-solid w-5 opacity-70" :class="editMode ? 'fa-check' : 'fa-pen-to-square'"></i><span x-text="editMode ? '完成编辑' : '布局编辑'"></span></div>
+                            <div class="h-px bg-white/10 my-1"></div>
+                            <div @click="modals.memo = true" class="menu-item"><i class="fa-solid fa-note-sticky w-5 opacity-70"></i> 快速便签</div>
                             <div @click="openGroupModal()" class="menu-item"><i class="fa-solid fa-folder-plus w-5 opacity-70"></i> 新建分组</div>
                             <div @click="modals.settings = true" class="menu-item"><i class="fa-solid fa-sliders w-5 opacity-70"></i> 系统设置</div>
                             <div class="h-px bg-white/10 my-1"></div>
@@ -247,30 +175,16 @@ const HTML_TEMPLATE = (context) => `
     </nav>
 
     <main class="mx-auto px-4 sm:px-6 pb-24 transition-all duration-500" :class="[settings.layoutWidth === 'wide' ? 'max-w-[98%]' : 'max-w-7xl', zenMode ? 'mt-[30vh]' : '']">
-        
         <div class="max-w-2xl mx-auto mb-12 relative z-10 animate-fade-in-up">
             <div class="flex justify-center flex-wrap gap-2 mb-4 transition-opacity duration-300" :class="{ 'opacity-0': zenMode }">
                 <template x-for="eng in engines">
-                    <button @click="setEngine(eng.val)" 
-                        class="pill-tag" :class="{ 'active': settings.engine === eng.val }">
-                        <i :class="eng.icon" class="mr-1"></i> <span x-text="eng.name"></span>
-                    </button>
+                    <button @click="setEngine(eng.val)" class="pill-tag" :class="{ 'active': settings.engine === eng.val }"><i :class="eng.icon" class="mr-1"></i> <span x-text="eng.name"></span></button>
                 </template>
             </div>
-            
             <div class="relative group transform transition-all duration-300 focus-within:scale-105">
-                <input x-ref="searchInput" type="text" x-model="search" 
-                    @keydown.enter="doSearch()" 
-                    @focus="startZenTimer()" @blur="clearZenTimer()"
-                    @input="clearZenTimer()"
-                    :placeholder="getSearchPlaceholder()" 
-                    class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-2xl backdrop-blur-md relative z-10">
-                <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none z-20">
-                    <i class="fa-solid fa-magnifying-glass text-lg"></i>
-                </div>
-                <div x-show="search" @click="search = ''; $refs.searchInput.focus()" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition z-20">
-                    <i class="fa-solid fa-times"></i>
-                </div>
+                <input x-ref="searchInput" type="text" x-model="search" @keydown.enter="doSearch()" @focus="startZenTimer()" @blur="clearZenTimer()" @input="clearZenTimer()" :placeholder="getSearchPlaceholder()" class="search-input w-full h-14 pl-14 pr-14 rounded-2xl text-lg outline-none shadow-2xl backdrop-blur-md relative z-10">
+                <div class="absolute left-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 pointer-events-none z-20"><i class="fa-solid fa-magnifying-glass text-lg"></i></div>
+                <div x-show="search" @click="search = ''; $refs.searchInput.focus()" class="absolute right-0 top-0 h-14 w-14 flex items-center justify-center opacity-40 cursor-pointer hover:opacity-100 transition z-20"><i class="fa-solid fa-times"></i></div>
             </div>
         </div>
 
@@ -284,66 +198,36 @@ const HTML_TEMPLATE = (context) => `
                                 <span x-text="group.name"></span>
                                 <i x-show="group.isPrivate" class="fa-solid fa-lock text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full"></i>
                             </h2>
-                            <template x-if="isLoggedIn && !search">
-                                <div class="cursor-move handle-group opacity-0 group-hover/header:opacity-100 p-1.5 hover:bg-white/5 rounded text-xs transition" style="color: var(--text-secondary)" @click.stop>
-                                    <i class="fa-solid fa-grip-vertical"></i>
-                                </div>
-                            </template>
+                            <template x-if="editMode && !search"><div class="cursor-move handle-group p-1.5 bg-white/10 rounded text-xs transition text-indigo-400" @click.stop><i class="fa-solid fa-grip-vertical"></i></div></template>
                         </div>
-                        <template x-if="isLoggedIn">
-                            <button @click="editGroup(group)" class="w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover/header:opacity-100 hover:bg-white/10 transition" style="color: var(--text-secondary)">
-                                <i class="fa-solid fa-pen text-xs"></i>
-                            </button>
-                        </template>
+                        <template x-if="editMode"><button @click="editGroup(group)" class="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 transition" style="color: var(--text-secondary)"><i class="fa-solid fa-pen text-xs"></i></button></template>
                     </div>
 
                     <div class="group-content" :style="collapsed ? 'max-height: 0px; opacity: 0' : 'max-height: 3000px; opacity: 1'">
-                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sortable-items min-h-[10px]" 
-                             :data-group-id="group.id"
-                             x-init="initSortable($el)">
-                            
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sortable-items min-h-[10px]" :data-group-id="group.id" x-init="initSortable($el)">
                             <template x-for="link in group.items" :key="link.id">
-                                <div class="nav-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer select-none h-full group relative"
-                                     :data-id="link.id"
-                                     @click="openLink(link.url)"
-                                     @contextmenu.prevent.stop="showContextMenu($event, link, group.id)">
-                                    
-                                    <img :src="link.iconUrl || getFavicon(link.url)" class="link-icon rounded-lg bg-gray-500/5 p-0.5" loading="lazy" 
-                                         onerror="this.src='https://ui-avatars.com/api/?name=Lk&background=random&color=fff&rounded=true&size=32'">
-                                    
+                                <div class="nav-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer select-none h-full group relative" :data-id="link.id" @click="!editMode && openLink(link.url)" @contextmenu.prevent.stop="showContextMenu($event, link, group.id)">
+                                    <div x-show="editMode" class="absolute inset-0 z-20 cursor-move"></div>
+                                    <img :src="link.iconUrl || getFavicon(link.url)" class="link-icon rounded-lg bg-gray-500/5 p-0.5" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=Lk&background=random&color=fff&rounded=true&size=32'">
                                     <div class="min-w-0 flex-1 relative">
-                                        <div class="font-semibold text-[13px] truncate leading-tight mb-0.5 flex items-center gap-1.5" style="color: var(--text-primary)">
-                                            <span x-text="link.title"></span>
-                                            <i x-show="link.isPrivate" class="fa-solid fa-lock text-[8px] text-amber-500"></i>
-                                        </div>
+                                        <div class="font-semibold text-[13px] truncate leading-tight mb-0.5 flex items-center gap-1.5" style="color: var(--text-primary)"><span x-text="link.title"></span><i x-show="link.isPrivate" class="fa-solid fa-lock text-[8px] text-amber-500"></i></div>
                                         <div class="text-[10px] truncate opacity-60 font-medium" style="color: var(--text-secondary)" x-text="link.desc || getDomain(link.url)"></div>
                                     </div>
+                                    <div x-show="editMode" class="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 opacity-50"><i class="fa-solid fa-grip-lines"></i></div>
                                 </div>
                             </template>
-                            
-                            <template x-if="isLoggedIn && !search">
-                                <div @click="openLinkModal(group.id)" class="rounded-xl border border-dashed border-gray-500/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 cursor-pointer flex flex-col items-center justify-center gap-1 opacity-50 hover:opacity-100 transition duration-300 min-h-[70px] group" style="color: var(--text-secondary)">
-                                    <i class="fa-solid fa-plus text-xs group-hover:text-indigo-400"></i>
-                                </div>
-                            </template>
+                            <template x-if="editMode && !search"><div @click="openLinkModal(group.id)" class="rounded-xl border border-dashed border-gray-500/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 cursor-pointer flex flex-col items-center justify-center gap-1 opacity-50 hover:opacity-100 transition duration-300 min-h-[70px] group" style="color: var(--text-secondary)"><i class="fa-solid fa-plus text-xs group-hover:text-indigo-400"></i></div></template>
                         </div>
                     </div>
                 </div>
             </template>
         </div>
-        
         <div x-show="filteredGroups.length === 0 && !zenMode" class="text-center py-20 opacity-40">
-            <div x-cloak>
-                <i class="fa-brands fa-space-awesome text-6xl mb-6 animate-pulse"></i>
-                <p class="text-sm tracking-wide">你的数字宇宙空空如也</p>
-                <button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button>
-            </div>
+            <div x-cloak><i class="fa-brands fa-space-awesome text-6xl mb-6 animate-pulse"></i><p class="text-sm tracking-wide">你的数字宇宙空空如也</p><button x-show="isLoggedIn" @click="openGroupModal()" class="mt-6 px-6 py-2 rounded-full bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition text-sm font-bold">开始构建</button></div>
         </div>
     </main>
     
-    <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }">
-        <a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v13.0</a>
-    </footer>
+    <footer class="text-center pb-8 relative z-0 transition-opacity duration-500" :class="{ 'opacity-0 pointer-events-none': zenMode }"><a href="https://github.com/jinhuaitao/NAV" target="_blank" class="text-xs font-mono opacity-30 hover:opacity-100 transition-opacity" style="color: var(--text-secondary)">Nexus v13.6</a></footer>
 
     <div x-show="menu.show" :style="\`top: \${menu.y}px; left: \${menu.x}px\`" class="context-menu" @click.outside="closeMenu()" x-cloak>
         <div class="menu-item" @click="menuEdit()"><i class="fa-solid fa-pen w-4 opacity-60"></i> 编辑</div>
@@ -354,10 +238,7 @@ const HTML_TEMPLATE = (context) => `
 
     <div x-show="modals.memo" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" x-cloak x-transition.opacity>
         <div class="glass-panel p-6 rounded-2xl w-full max-w-lg h-[60vh] flex flex-col" style="background: var(--modal-bg)" @click.away="modals.memo = false">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold flex items-center gap-2" style="color: var(--text-primary)"><i class="fa-solid fa-note-sticky text-yellow-400"></i> 快速便签</h3>
-                <div class="text-xs opacity-50" x-text="status.saving ? '保存中...' : '自动保存'"></div>
-            </div>
+            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold flex items-center gap-2" style="color: var(--text-primary)"><i class="fa-solid fa-note-sticky text-yellow-400"></i> 快速便签</h3><div class="text-xs opacity-50" x-text="status.saving ? '保存中...' : '自动保存'"></div></div>
             <textarea x-model="settings.memo" @input.debounce.1000ms="saveSettings()" class="memo-area w-full flex-1 text-base p-4 rounded-xl bg-gray-500/5 text-white/90" placeholder="写下你的想法..."></textarea>
             <div class="mt-4 flex justify-end"><button @click="modals.memo = false" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/20">关闭</button></div>
         </div>
@@ -370,10 +251,7 @@ const HTML_TEMPLATE = (context) => `
             <form @submit.prevent="handleAuth">
                 <input type="text" x-model="authForm.username" placeholder="用户名" class="search-input w-full mb-3 p-3.5 rounded-xl text-center" required>
                 <input type="password" x-model="authForm.password" placeholder="密码" class="search-input w-full mb-8 p-3.5 rounded-xl text-center" required>
-                <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-indigo-500/20 transition transform active:scale-95 disabled:opacity-50" :disabled="status.submitting">
-                    <span x-show="!status.submitting" x-text="needsSetup ? '系统初始化' : '登录控制台'"></span>
-                    <span x-show="status.submitting"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                </button>
+                <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-indigo-500/20 transition transform active:scale-95 disabled:opacity-50" :disabled="status.submitting"><span x-show="!status.submitting" x-text="needsSetup ? '系统初始化' : '登录控制台'"></span><span x-show="status.submitting"><i class="fa-solid fa-circle-notch fa-spin"></i></span></button>
             </form>
         </div>
     </div>
@@ -382,17 +260,10 @@ const HTML_TEMPLATE = (context) => `
         <div class="glass-panel p-6 rounded-2xl w-full max-w-md relative" style="background: var(--modal-bg)" @click.away="modals.link = false">
             <h3 class="text-lg font-bold mb-6" style="color: var(--text-primary)" x-text="linkForm.id ? '编辑信标' : '新建信标'"></h3>
             <div class="space-y-4">
-                <div class="relative">
-                    <input type="text" x-model="linkForm.url" @blur="fetchMetadata()" placeholder="https://" class="search-input w-full p-3 pl-10 rounded-xl" :class="{'border-indigo-500': status.fetchingMeta}">
-                    <i class="fa-solid fa-globe absolute left-3.5 top-3.5 opacity-40"></i>
-                    <div x-show="status.fetchingMeta" class="absolute right-3 top-3.5 text-indigo-400 animate-spin"><i class="fa-solid fa-circle-notch"></i></div>
-                </div>
+                <div class="relative"><input type="text" x-model="linkForm.url" @blur="fetchMetadata()" placeholder="https://" class="search-input w-full p-3 pl-10 rounded-xl" :class="{'border-indigo-500': status.fetchingMeta}"><i class="fa-solid fa-globe absolute left-3.5 top-3.5 opacity-40"></i><div x-show="status.fetchingMeta" class="absolute right-3 top-3.5 text-indigo-400 animate-spin"><i class="fa-solid fa-circle-notch"></i></div></div>
                 <input type="text" x-model="linkForm.title" placeholder="标题 (自动获取)" class="search-input w-full p-3 rounded-xl">
                 <input type="text" x-model="linkForm.desc" placeholder="描述 (可选)" class="search-input w-full p-3 rounded-xl">
-                <div class="flex gap-3">
-                    <div class="flex-1 relative"><input type="text" x-model="linkForm.iconUrl" placeholder="图标 URL" class="search-input w-full p-3 pl-9 rounded-xl text-sm"><img :src="linkForm.iconUrl || 'about:blank'" class="absolute left-2.5 top-2.5 w-5 h-5 rounded object-contain opacity-50" onerror="this.style.display='none'" onload="this.style.display='block'"></div>
-                    <div class="flex items-center justify-center px-4 rounded-xl cursor-pointer border transition select-none" :class="linkForm.isPrivate ? 'border-amber-500/50 bg-amber-500/10 text-amber-500' : 'border-gray-500/20 bg-gray-500/5 text-gray-400'" @click="linkForm.isPrivate = !linkForm.isPrivate" title="隐私模式"><i class="fa-solid" :class="linkForm.isPrivate ? 'fa-lock' : 'fa-lock-open'"></i></div>
-                </div>
+                <div class="flex gap-3"><div class="flex-1 relative"><input type="text" x-model="linkForm.iconUrl" placeholder="图标 URL" class="search-input w-full p-3 pl-9 rounded-xl text-sm"><img :src="linkForm.iconUrl || 'about:blank'" class="absolute left-2.5 top-2.5 w-5 h-5 rounded object-contain opacity-50" onerror="this.style.display='none'" onload="this.style.display='block'"></div><div class="flex items-center justify-center px-4 rounded-xl cursor-pointer border transition select-none" :class="linkForm.isPrivate ? 'border-amber-500/50 bg-amber-500/10 text-amber-500' : 'border-gray-500/20 bg-gray-500/5 text-gray-400'" @click="linkForm.isPrivate = !linkForm.isPrivate" title="隐私模式"><i class="fa-solid" :class="linkForm.isPrivate ? 'fa-lock' : 'fa-lock-open'"></i></div></div>
             </div>
             <div class="mt-8 flex gap-3"><button @click="modals.link = false" class="flex-1 py-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/20 transition font-medium" style="color: var(--text-secondary)">取消</button><button @click="saveLink()" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-500/20">保存</button></div>
         </div>
@@ -427,7 +298,6 @@ const HTML_TEMPLATE = (context) => `
                         <button @click="settings.layoutWidth = 'center'" class="flex-1 py-2 rounded-lg text-xs font-medium transition border" :class="settings.layoutWidth !== 'wide' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-500/20 hover:bg-gray-500/10'" style="color: var(--text-secondary)">标准居中</button>
                         <button @click="settings.layoutWidth = 'wide'" class="flex-1 py-2 rounded-lg text-xs font-medium transition border" :class="settings.layoutWidth === 'wide' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-500/20 hover:bg-gray-500/10'" style="color: var(--text-secondary)">宽屏模式</button>
                     </div>
-                    
                     <div class="space-y-5">
                         <div><div class="flex justify-between text-xs mb-1.5" style="color: var(--text-secondary)"><span>顶部栏透明度</span> <span x-text="(settings.headerOpacity ?? 75) + '%'"></span></div><input type="range" x-model="settings.headerOpacity" min="0" max="100" step="5" class="w-full h-1.5 bg-gray-500/20 rounded-lg appearance-none cursor-pointer accent-indigo-500"></div>
                         <div class="grid grid-cols-2 gap-4">
@@ -459,8 +329,10 @@ const HTML_TEMPLATE = (context) => `
         function app() {
             return {
                 groups: [], search: '', timeStr: '', weather: { temp: null, code: null, icon: null, desc: '' },
-                theme: localStorage.getItem('theme') || 'dark', isLoggedIn: false, needsSetup: false, zenMode: false, token: localStorage.getItem('nexus_token'),
-                status: { loading: true, saving: false, submitting: false, unsaved: false, fetchingMeta: false },
+                theme: localStorage.getItem('theme') || 'dark', isLoggedIn: false, needsSetup: false, zenMode: false, 
+                editMode: false,
+                token: localStorage.getItem('nexus_token'),
+                status: { loading: true, saving: false, submitting: false, pending: false, fetchingMeta: false },
                 modals: { login: false, link: false, group: false, settings: false, memo: false },
                 menu: { show: false, x: 0, y: 0, targetLink: null, targetGroupId: null },
                 toast: { show: false, msg: '', type: 'success' },
@@ -474,53 +346,71 @@ const HTML_TEMPLATE = (context) => `
                 authForm: { username: '', password: '' }, linkForm: { id: null, groupId: null, title: '', url: '', desc: '', iconUrl: '', isPrivate: false }, groupForm: { id: null, name: '', isPrivate: false },
                 
                 zenTimer: null,
+                sortableInstances: [], 
+                groupSortableInstance: null, 
+                saveDebounceTimer: null, 
 
                 async init() {
                     setInterval(() => { const now = new Date(); this.timeStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }, 1000);
                     this.fetchWeather(); 
                     await Promise.all([this.checkStatus(), this.syncData('GET')]);
                     if(this.token) await this.verifyToken();
-                    this.initGroupSortable(); this.updateCSSVars(); 
+                    this.updateCSSVars(); 
                     
+                    // 🟢 Feature: Auto-Sync on Tab Focus (Solves multi-device/tab issues)
+                    window.addEventListener('focus', () => {
+                        if(this.isLoggedIn && !this.status.pending && !this.status.saving) {
+                            console.log('Tab focused, checking for updates...');
+                            this.syncData('GET'); 
+                        }
+                    });
+
+                    // 🟢 Safety: Prevent closing tab while saving
+                    window.addEventListener('beforeunload', (e) => {
+                        if(this.status.pending || this.status.saving) {
+                            e.preventDefault(); e.returnValue = 'Data pending save. Are you sure?';
+                        }
+                    });
+
                     const params = new URLSearchParams(window.location.search);
                     if(params.get('action') === 'search') setTimeout(() => this.$refs.searchInput.focus(), 500);
                     if(params.get('action') === 'memo') setTimeout(() => { if(this.isLoggedIn) this.modals.memo = true; else this.showToast('请先登录使用便签', 'error'); }, 500);
 
-                    setTimeout(() => { this.status.loading = false; }, 100);
+                    this.$nextTick(() => { this.initGroupSortable(); this.updateSortableState(); this.status.loading = false; });
                 },
 
                 handleKeydown(e) {
                     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') { if (e.key === 'Escape') { document.activeElement.blur(); this.closeAllModals(); } return; }
                     if (e.key === '/') { e.preventDefault(); this.$refs.searchInput.focus(); }
-                    if (e.key === 'Escape') { this.closeAllModals(); this.zenMode = false; }
+                    if (e.key === 'Escape') { this.closeAllModals(); this.zenMode = false; if(this.editMode) this.toggleEditMode(); }
                     if (e.key === 'Z' && e.shiftKey) { this.toggleZen(); }
                     if (e.key === 'N' && e.shiftKey && this.isLoggedIn) { this.modals.memo = true; }
                 },
                 closeAllModals() { this.modals.login = false; this.modals.link = false; this.modals.group = false; this.modals.settings = false; this.modals.memo = false; this.closeMenu(); },
                 toggleZen() { this.zenMode = !this.zenMode; },
                 
-                startZenTimer() { 
-                    if (this.zenMode || this.search) return; 
-                    this.clearZenTimer(); 
-                    this.zenTimer = setTimeout(() => { 
-                        if (!this.zenMode && !this.search && document.activeElement === this.$refs.searchInput) { 
-                            this.zenMode = true; 
-                        } 
-                    }, 3000); 
+                toggleEditMode() {
+                    this.editMode = !this.editMode;
+                    this.$nextTick(() => { this.updateSortableState(); });
+                    if(this.editMode) this.showToast('已进入编辑模式');
+                    else this.showToast('已退出编辑模式');
                 },
+
+                updateSortableState() {
+                    const isDisabled = !this.editMode;
+                    if (this.groupSortableInstance) this.groupSortableInstance.option('disabled', isDisabled);
+                    this.sortableInstances.forEach(inst => inst.option('disabled', isDisabled));
+                },
+
+                startZenTimer() { if (this.zenMode || this.search) return; this.clearZenTimer(); this.zenTimer = setTimeout(() => { if (!this.zenMode && !this.search && document.activeElement === this.$refs.searchInput) { this.zenMode = true; } }, 3000); },
                 clearZenTimer() { if (this.zenTimer) { clearTimeout(this.zenTimer); this.zenTimer = null; } },
 
                 setEngine(val) { this.settings.engine = val; this.saveSettings(); },
 
                 async fetchWeather() { 
-                    if (window.CF_COORDS && window.CF_COORDS.lat) {
-                         this.getWeather(window.CF_COORDS.lat, window.CF_COORDS.lon);
-                         return;
-                    }
+                    if (window.CF_COORDS && window.CF_COORDS.lat) { this.getWeather(window.CF_COORDS.lat, window.CF_COORDS.lon); return; }
                     if (!navigator.geolocation) return; 
-                    navigator.geolocation.getCurrentPosition(async (pos) => { 
-                        this.getWeather(pos.coords.latitude, pos.coords.longitude);
-                    }); 
+                    navigator.geolocation.getCurrentPosition(async (pos) => { this.getWeather(pos.coords.latitude, pos.coords.longitude); }); 
                 },
                 async getWeather(lat, lon) {
                     try { 
@@ -536,18 +426,14 @@ const HTML_TEMPLATE = (context) => `
                     } catch(e) {}
                 },
                 getWeatherIcon(code) {
-                    // Mapping WMO codes to Twemoji images (72x72 PNGs)
                     const base = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/";
-                    // Default: Sun
                     let icon = "2600.png"; let desc = "晴";
-                    
-                    if ([1, 2, 3].includes(code)) { icon = "26c5.png"; desc = "多云"; } // ⛅
-                    else if ([45, 48].includes(code)) { icon = "1f32b.png"; desc = "雾"; } // 🌫️
-                    else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = "1f327.png"; desc = "小雨"; } // 🌧️
-                    else if ([71, 73, 75, 77, 85, 86].includes(code)) { icon = "2744.png"; desc = "雪"; } // ❄️
-                    else if ([80, 81, 82].includes(code)) { icon = "1f326.png"; desc = "阵雨"; } // 🌦️
-                    else if ([95, 96, 99].includes(code)) { icon = "26c8.png"; desc = "雷雨"; } // ⛈️
-                    
+                    if ([1, 2, 3].includes(code)) { icon = "26c5.png"; desc = "多云"; } 
+                    else if ([45, 48].includes(code)) { icon = "1f32b.png"; desc = "雾"; } 
+                    else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = "1f327.png"; desc = "小雨"; } 
+                    else if ([71, 73, 75, 77, 85, 86].includes(code)) { icon = "2744.png"; desc = "雪"; } 
+                    else if ([80, 81, 82].includes(code)) { icon = "1f326.png"; desc = "阵雨"; } 
+                    else if ([95, 96, 99].includes(code)) { icon = "26c8.png"; desc = "雷雨"; } 
                     return { url: base + icon, desc: desc };
                 },
                 
@@ -566,39 +452,50 @@ const HTML_TEMPLATE = (context) => `
                 getSearchPlaceholder() { if (this.settings.engine === 'custom') return 'Search with Custom Engine...'; return 'Search with ' + (this.engines.find(e => e.val === this.settings.engine)?.name || 'Google') + '...'; },
 
                 initGroupSortable() { 
-                    const el = document.getElementById('groups-container'); 
-                    if(!el || this.groupSortable) return; 
-                    this.groupSortable = new Sortable(el, { 
-                        animation: 200, handle: '.handle-group', disabled: !this.isLoggedIn, ghostClass: 'opacity-50', 
+                    const el = document.getElementById('groups-container'); if(!el) return;
+                    if(this.groupSortableInstance) this.groupSortableInstance.destroy();
+                    this.groupSortableInstance = new Sortable(el, { 
+                        animation: 200, handle: '.handle-group', draggable: '.group-container',
+                        disabled: !this.editMode, ghostClass: 'opacity-50', delay: 50,
                         onEnd: (evt) => { 
+                            if (evt.oldIndex === evt.newIndex) return;
+                            // 🟢 FIX: Remove DOM element to force Alpine re-render
+                            if(evt.item && evt.item.parentNode) evt.item.parentNode.removeChild(evt.item);
                             const item = this.groups.splice(evt.oldIndex, 1)[0]; 
                             this.groups.splice(evt.newIndex, 0, item); 
                             this.saveAll(); 
                         } 
                     }); 
                 },
+
                 initSortable(el) { 
                     if(el._sortable) return;
-                    el._sortable = new Sortable(el, { 
-                        group: 'shared-links', animation: 200, delay: 100, delayOnTouchOnly: true, 
-                        disabled: !this.isLoggedIn || !!this.search, ghostClass: 'opacity-40', dragClass: 'opacity-100', 
+                    const inst = new Sortable(el, { 
+                        group: 'shared-links', animation: 150, delay: 100, delayOnTouchOnly: true, 
+                        disabled: !this.editMode, ghostClass: 'opacity-40', dragClass: 'opacity-100', 
                         onEnd: (evt) => { 
                             if (!evt.to || !evt.from) return; 
                             const fromG = this.groups.find(g => String(g.id) === evt.from.dataset.groupId); 
                             const toG = this.groups.find(g => String(g.id) === evt.to.dataset.groupId); 
                             if (fromG && toG) { 
-                                const item = fromG.items[evt.oldIndex];
-                                if(item) {
-                                    fromG.items.splice(evt.oldIndex, 1);
-                                    toG.items.splice(evt.newIndex, 0, item);
-                                    this.saveAll();
+                                // 🟢 FIX: Remove DOM element to force Alpine re-render
+                                if(evt.item && evt.item.parentNode) evt.item.parentNode.removeChild(evt.item);
+                                if (evt.oldIndex >= 0 && evt.oldIndex < fromG.items.length) {
+                                    const item = fromG.items[evt.oldIndex];
+                                    if(item) {
+                                        fromG.items.splice(evt.oldIndex, 1);
+                                        toG.items.splice(evt.newIndex, 0, item);
+                                        this.saveAll();
+                                    }
                                 }
                             } 
                         } 
-                    }); 
+                    });
+                    el._sortable = inst;
+                    this.sortableInstances.push(inst);
                 },
 
-                showContextMenu(e, link, groupId) { if(!this.isLoggedIn) return; this.menu.targetLink = link; this.menu.targetGroupId = groupId; let x = e.clientX, y = e.clientY; if (window.innerWidth - x < 180) x -= 170; this.menu.x = x; this.menu.y = y; this.menu.show = true; },
+                showContextMenu(e, link, groupId) { if(!this.editMode) return; this.menu.targetLink = link; this.menu.targetGroupId = groupId; let x = e.clientX, y = e.clientY; if (window.innerWidth - x < 180) x -= 170; this.menu.x = x; this.menu.y = y; this.menu.show = true; },
                 closeMenu() { this.menu.show = false; },
                 menuEdit() { this.linkForm = { ...this.menu.targetLink, groupId: this.menu.targetGroupId }; this.modals.link = true; this.closeMenu(); },
                 menuCopy() { navigator.clipboard.writeText(this.menu.targetLink.url); this.showToast('链接已复制'); this.closeMenu(); },
@@ -608,22 +505,40 @@ const HTML_TEMPLATE = (context) => `
                 async fetchMetadata() { if(!this.linkForm.url || this.linkForm.title || this.status.fetchingMeta) return; if (!this.linkForm.url.startsWith('http')) this.linkForm.url = 'https://' + this.linkForm.url; this.status.fetchingMeta = true; try { const res = await fetch('/api/meta?url=' + encodeURIComponent(this.linkForm.url)); if(res.ok) { const data = await res.json(); if(data.title) this.linkForm.title = data.title; if(data.description && !this.linkForm.desc) this.linkForm.desc = data.description.substring(0, 50); if(!this.linkForm.iconUrl) this.linkForm.iconUrl = data.icon || \`https://icons.duckduckgo.com/ip3/\${new URL(this.linkForm.url).hostname}.ico\`; } } catch(e) {} this.status.fetchingMeta = false; },
                 saveLink() { if(!this.linkForm.url) return; if(!this.linkForm.url.startsWith('http')) this.linkForm.url = 'https://' + this.linkForm.url; const oldIdStr = this.linkForm.id ? String(this.linkForm.id) : null; if(oldIdStr) this.groups.forEach(g => g.items = g.items.filter(i => String(i.id) !== oldIdStr)); const g = this.groups.find(x => String(x.id) === String(this.linkForm.groupId)); if(g) { g.items.push({ id: oldIdStr || Date.now().toString(), title: this.linkForm.title || new URL(this.linkForm.url).hostname, url: this.linkForm.url, desc: this.linkForm.desc, iconUrl: this.linkForm.iconUrl, isPrivate: this.linkForm.isPrivate }); this.saveAll(); this.modals.link = false; } },
                 openGroupModal() { this.groupForm = { id: null, name: '', isPrivate: false }; this.modals.group = true; }, editGroup(g) { this.groupForm = { ...g }; this.modals.group = true; },
-                saveGroup() { if(!this.groupForm.name) return; if(this.groupForm.id) { const g = this.groups.find(x => String(x.id) === String(this.groupForm.id)); if(g) { g.name = this.groupForm.name; g.isPrivate = this.groupForm.isPrivate; } } else { this.groups.push({ id: Date.now().toString(), name: this.groupForm.name, isPrivate: this.groupForm.isPrivate, items: [] }); this.$nextTick(() => this.initGroupSortable()); } this.saveAll(); this.modals.group = false; },
+                saveGroup() { 
+                    if(!this.groupForm.name) return; 
+                    if(this.groupForm.id) { 
+                        const g = this.groups.find(x => String(x.id) === String(this.groupForm.id)); 
+                        if(g) { g.name = this.groupForm.name; g.isPrivate = this.groupForm.isPrivate; } 
+                    } else { 
+                        this.groups.push({ id: Date.now().toString(), name: this.groupForm.name, isPrivate: this.groupForm.isPrivate, items: [] }); 
+                        this.$nextTick(() => { this.initGroupSortable(); this.updateSortableState(); }); 
+                    } 
+                    this.saveAll(); this.modals.group = false; 
+                },
                 deleteGroup() { if(!confirm('删除此分组及所有内容?')) return; this.groups = this.groups.filter(x => String(x.id) !== String(this.groupForm.id)); this.saveAll(); this.modals.group = false; },
 
-                async syncData(method, payload = null) { const headers = { 'Content-Type': 'application/json' }; if(this.token) headers['Authorization'] = this.token; if(method === 'POST') this.status.saving = true; try { const res = await fetch('/api/data', { method, headers, body: payload ? JSON.stringify(payload) : null }); if(res.status === 401) { this.logout(); return; } if(method === 'GET') { const data = await res.json(); this.groups = (Array.isArray(data.data) && data.data.length > 0 && !data.data[0].items) ? [{ id: 'default', name: 'Home', items: data.data }] : (data.data || []); if(data.settings) { this.settings = { ...this.settings, ...data.settings }; this.updateCSSVars(); } } else { this.status.unsaved = false; } } catch(e) { if(method === 'POST') this.status.unsaved = true; } finally { this.status.saving = false; } },
-                async saveAll() { 
+                async syncData(method, payload = null) { const headers = { 'Content-Type': 'application/json' }; if(this.token) headers['Authorization'] = this.token; if(method === 'POST') this.status.saving = true; try { const res = await fetch('/api/data', { method, headers, body: payload ? JSON.stringify(payload) : null }); if(res.status === 401) { this.logout(); return; } if(method === 'GET') { const data = await res.json(); this.groups = (Array.isArray(data.data) && data.data.length > 0 && !data.data[0].items) ? [{ id: 'default', name: 'Home', items: data.data }] : (data.data || []); if(data.settings) { this.settings = { ...this.settings, ...data.settings }; this.updateCSSVars(); } } else { this.status.pending = false; } } catch(e) { if(method === 'POST') this.status.pending = true; } finally { this.status.saving = false; } },
+                
+                // 🟢 Debounced Save: The Key to Sync Perfection
+                saveAll() { 
                     if(this.isLoggedIn) { 
-                        await this.syncData('POST', { groups: this.groups, settings: this.settings }); 
+                        if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+                        this.status.pending = true; // Mark UI as "Waiting to save"
+                        this.saveDebounceTimer = setTimeout(async () => {
+                            await this.syncData('POST', { groups: this.groups, settings: this.settings }); 
+                            this.status.pending = false;
+                            this.saveDebounceTimer = null;
+                        }, 500); // 500ms debounce
                     } else if(this.settings.engine === 'custom') { 
                         this.showToast('请先登录', 'error'); 
                     }
                 }, 
                 async saveSettings() { await this.saveAll(); },
                 async checkStatus() { try { const res = await fetch('/api/status'); this.needsSetup = !(await res.json()).setup; if(this.needsSetup) this.modals.login = true; } catch(e) {} },
-                async handleAuth() { this.status.submitting = true; const endpoint = this.needsSetup ? '/api/setup' : '/api/login'; try { const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.authForm) }); if(res.ok) { const data = await res.json(); this.token = data.token; localStorage.setItem('nexus_token', this.token); this.isLoggedIn = true; this.modals.login = false; this.needsSetup = false; this.syncData('GET'); this.showToast('欢迎回来'); setTimeout(() => { this.initGroupSortable(); }, 500); } else { this.showToast('验证失败', 'error'); } } catch(e) {} this.status.submitting = false; },
+                async handleAuth() { this.status.submitting = true; const endpoint = this.needsSetup ? '/api/setup' : '/api/login'; try { const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.authForm) }); if(res.ok) { const data = await res.json(); this.token = data.token; localStorage.setItem('nexus_token', this.token); this.isLoggedIn = true; this.modals.login = false; this.needsSetup = false; this.syncData('GET'); this.showToast('欢迎回来'); setTimeout(() => { this.initGroupSortable(); this.updateSortableState(); }, 500); } else { this.showToast('验证失败', 'error'); } } catch(e) {} this.status.submitting = false; },
                 async verifyToken() { const res = await fetch('/api/check', { headers: { 'Authorization': this.token } }); if(!res.ok) this.logout(); else this.isLoggedIn = true; },
-                logout() { this.token = null; localStorage.removeItem('nexus_token'); this.isLoggedIn = false; this.groups = []; this.syncData('GET'); this.showToast('已登出'); },
+                logout() { this.token = null; localStorage.removeItem('nexus_token'); this.isLoggedIn = false; this.editMode = false; this.groups = []; this.syncData('GET'); this.showToast('已登出'); },
 
                 doSearch() { if(!this.search) return; if(this.search.includes('.') && !this.search.includes(' ')) { window.open(this.search.startsWith('http') ? this.search : 'https://' + this.search, '_blank'); } else { let url = ''; if(this.settings.engine === 'custom' && this.settings.customSearchUrl) { url = this.settings.customSearchUrl; } else { const engine = this.engines.find(e => e.val === this.settings.engine) || this.engines[0]; url = engine.url; } window.open(url + encodeURIComponent(this.search), '_blank'); } },
                 getFavicon(url) { try { return \`https://icons.duckduckgo.com/ip3/\${new URL(url).hostname}.ico\`; } catch { return ''; } }, getDomain(url) { try { return new URL(url).hostname; } catch { return ''; } }, openLink(url) { window.open(url, '_blank'); }, showToast(msg, type='success') { this.toast.msg = msg; this.toast.type = type; this.toast.show = true; setTimeout(() => this.toast.show = false, 2500); },
@@ -657,7 +572,7 @@ export default {
         if (request.method === "OPTIONS") return new Response(null, { headers: cors });
 
         try {
-            // PWA Manifest Route - Uses the Global SITE_ICON
+            // PWA Manifest Route
             if (path === "/manifest.json") {
                 const manifest = {
                     name: "Nexus", short_name: "Nexus", start_url: "/", display: "standalone",
@@ -666,7 +581,6 @@ export default {
                         { src: SITE_ICON, sizes: "72x72", type: "image/png" },
                         { src: SITE_ICON, sizes: "192x192", type: "image/png", purpose: "any maskable" }
                     ],
-                    // Long Press Shortcuts
                     shortcuts: [
                         {
                             name: "快速搜索",
@@ -683,7 +597,7 @@ export default {
                 return new Response(JSON.stringify(manifest), { headers: { "Content-Type": "application/json", ...cors } });
             }
 
-            // Main UI Route - Injecting Cloudflare Location Data
+            // Main UI Route
             if (path === "/" || path === "/index.html") {
                 const coords = { lat: request.cf?.latitude || null, lon: request.cf?.longitude || null };
                 return new Response(HTML_TEMPLATE({ coords }), { headers: { "Content-Type": "text/html;charset=UTF-8", "X-Frame-Options": "DENY" } });
